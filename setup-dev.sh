@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# Development Setup Script for action-repo-maintenance
+# Development Setup Script for workflow-backups
 # This script sets up the development environment
 
 set -e  # Exit on error
 
-echo "================================================"
-echo "QuantEcon Repository Maintenance - Dev Setup"
-echo "================================================"
+echo "=============================================="
+echo "QuantEcon Backup Workflow - Dev Setup"
+echo "=============================================="
 echo ""
 
 # Check Python version
@@ -61,7 +61,6 @@ if [ ! -f "config.yml" ]; then
     echo "Creating config.yml from example..."
     cp config.example.yml config.yml
     echo "✓ config.yml created (please customize before running)"
-    echo "  Edit config.yml to add your settings"
 else
     echo "✓ config.yml already exists"
 fi
@@ -69,32 +68,11 @@ echo ""
 
 # Check for required environment variables
 echo "Checking environment variables..."
-missing_vars=()
-
 if [ -z "$GITHUB_TOKEN" ]; then
-    missing_vars+=("GITHUB_TOKEN")
-fi
-
-if [ -z "$AWS_ACCESS_KEY_ID" ]; then
-    missing_vars+=("AWS_ACCESS_KEY_ID")
-fi
-
-if [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
-    missing_vars+=("AWS_SECRET_ACCESS_KEY")
-fi
-
-if [ ${#missing_vars[@]} -eq 0 ]; then
-    echo "✓ All required environment variables are set"
+    echo "⚠️  GITHUB_TOKEN not set"
+    echo '   Set with: export GITHUB_TOKEN="your_token"'
 else
-    echo "⚠️  Missing environment variables:"
-    for var in "${missing_vars[@]}"; do
-        echo "  - $var"
-    done
-    echo ""
-    echo "Set them with:"
-    echo '  export GITHUB_TOKEN="your_token"'
-    echo '  export AWS_ACCESS_KEY_ID="your_key"'
-    echo '  export AWS_SECRET_ACCESS_KEY="your_secret"'
+    echo "✓ GITHUB_TOKEN is set"
 fi
 echo ""
 
@@ -103,19 +81,20 @@ echo "Running tests..."
 if pytest tests/ -v; then
     echo "✓ All tests passed"
 else
-    echo "⚠️  Some tests failed (this is expected if you haven't configured credentials)"
+    echo "⚠️  Some tests failed"
 fi
 echo ""
 
-echo "================================================"
+echo "============================================"
 echo "Setup Complete!"
-echo "================================================"
+echo "============================================"
 echo ""
 echo "Next steps:"
 echo "  1. Edit config.yml with your settings"
-echo "  2. Set required environment variables (if not already set)"
-echo "  3. Run: source venv/bin/activate"
-echo "  4. Test: python -m src.main --config config.yml --task report"
+echo "  2. Set GITHUB_TOKEN environment variable"
+echo "  3. Configure AWS credentials (OIDC recommended for Actions)"
+echo "  4. Run: source venv/bin/activate"
+echo "  5. Test: python -m src.main --config config.yml --task backup"
 echo ""
-echo "For more information, see QUICKSTART.md"
+echo "See QUICKSTART.md for more information"
 echo ""

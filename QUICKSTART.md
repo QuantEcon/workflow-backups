@@ -1,50 +1,82 @@
 # Quick Start Guide
 
-This guide will help you get started with the QuantEcon Repository Maintenance Action for backing up repositories to AWS S3.
+Get started with the QuantEcon centralized backup workflow for AWS S3.
 
 ## Prerequisites
 
 - Python 3.9 or higher
 - GitHub personal access token with `repo` scope
-- AWS account with S3 bucket created
-- AWS credentials (Access Key ID and Secret Access Key)
+- AWS account with S3 bucket
+- AWS IAM role configured for GitHub Actions OIDC (recommended)
 
-## Local Setup
+## Option 1: GitHub Actions (Recommended)
 
-### 1. Clone the Repository
+### Step 1: Set Up AWS OIDC Authentication
 
-```bash
-git clone https://github.com/quantecon/action-repo-maintenance.git
-cd action-repo-maintenance
-```
-
-### 2. Install Dependencies
+Create an IAM Identity Provider for GitHub:
 
 ```bash
-# Create virtual environment (recommended)
-python -m venv venv
-source venv/bin/activate  # On macOS/Linux
-# or
-venv\Scripts\activate  # On Windows
-
-# Install dependencies
-pip install -r requirements.txt
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com
 ```
 
-### 3. Configure the Application
+Create an IAM role with this trust policy (replace `ACCOUNT_ID` and `YOUR_ORG/YOUR_REPO`):
 
-Copy the example configuration and customize it:
-
-```bash
-cp config.example.yml config.yml
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/YOUR_REPO:*"
+        }
+      }
+    }
+  ]
+}
 ```
 
-Edit `config.yml`:
+Attach S3 permissions to the role:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject", "s3:ListBucket", "s3:HeadObject"],
+      "Resource": ["arn:aws:s3:::YOUR_BUCKET", "arn:aws:s3:::YOUR_BUCKET/*"]
+    }
+  ]
+}
+```
+
+### Step 2: Configure GitHub Secrets
+
+Add to your repository secrets:
+
+| Secret | Value |
+|--------|-------|
+| `AWS_ROLE_ARN` | `arn:aws:iam::123456789012:role/GitHubActionsBackupRole` |
+
+### Step 3: Create Configuration
+
+Create `config.yml`:
 
 ```yaml
 backup:
   enabled: true
-  organization: "quantecon"
+  organization: "your-org"
   patterns:
     - "lecture-.*"
     - "quantecon-.*"
@@ -54,222 +86,99 @@ backup:
     prefix: "backups/"
 ```
 
-### 4. Set Environment Variables
+### Step 4: Run the Workflow
+
+1. Go to Actions tab in GitHub
+2. Select "Repository Backup"
+3. Click "Run workflow"
+
+## Option 2: Local Development
+
+### Step 1: Clone and Install
 
 ```bash
-export GITHUB_TOKEN="your_github_token"
-export AWS_ACCESS_KEY_ID="your_aws_access_key"
-export AWS_SECRET_ACCESS_KEY="your_aws_secret_key"
+git clone https://github.com/quantecon/workflow-backups.git
+cd workflow-backups
+
+python -m venv venv
+source venv/bin/activate  # macOS/Linux
+pip install -r requirements.txt
 ```
 
-### 5. Run Your First Backup
+### Step 2: Configure
 
 ```bash
-# Backup repositories
-python -m src.main --config config.yml --task backup
-
-# Generate a report
-python -m src.main --config config.yml --task report
-```
-
-## GitHub Actions Setup
-
-### 1. Set Up AWS S3 Bucket
-
-Create an S3 bucket for backups:
-
-```bash
-aws s3 mb s3://quantecon-repo-backups --region us-east-1
-```
-
-### 2. Configure GitHub Secrets
-
-In your GitHub repository settings, add these secrets:
-
-- `AWS_ACCESS_KEY_ID`: Your AWS access key
-- `AWS_SECRET_ACCESS_KEY`: Your AWS secret key
-- `REPO_BACKUP_TOKEN`: GitHub token with `repo` scope (optional, falls back to `GITHUB_TOKEN`)
-
-### 3. Configure Repository Variables (Optional)
-
-- `AWS_REGION`: AWS region for S3 bucket (default: us-east-1)
-
-### 4. Commit Your Configuration
-
-```bash
-# Copy and customize config
 cp config.example.yml config.yml
 # Edit config.yml with your settings
-
-# Commit to repository
-git add config.yml
-git commit -m "Add backup configuration"
-git push
 ```
 
-### 5. Test the Workflow
+### Step 3: Set Environment Variables
 
-You can trigger the workflow manually:
+```bash
+export GITHUB_TOKEN="ghp_your_token"
+export AWS_ACCESS_KEY_ID="your_key"
+export AWS_SECRET_ACCESS_KEY="your_secret"
+```
 
-1. Go to your repository on GitHub
-2. Click "Actions" tab
-3. Select "Repository Backup" workflow
-4. Click "Run workflow"
-5. (Optional) Override organization or force backup
+### Step 4: Run Backup
 
-## Understanding the Backup Process
+```bash
+# Run backup
+python -m src.main --config config.yml --task backup
 
-### What Gets Backed Up
+# Generate report
+python -m src.main --config config.yml --task report
 
-- Complete Git repository (all branches, tags, and history)
-- Repository is cloned as a mirror
-- Compressed as a tar.gz archive
-- Uploaded to S3 with metadata
+# Force re-backup
+python -m src.main --config config.yml --task backup --force
 
-### Backup Naming Convention
+# Debug mode
+python -m src.main --config config.yml --task backup --verbose
+```
+
+## Backup Structure
+
+Backups are stored as:
 
 ```
-s3://bucket-name/backups/{repo-name}/{repo-name}-{YYYYMMDD}.tar.gz
+s3://bucket/backups/{repo-name}/{repo-name}-{YYYYMMDD}.tar.gz
 ```
 
 Example:
 ```
-s3://quantecon-repo-backups/backups/lecture-python.myst/lecture-python.myst-20251027.tar.gz
+s3://quantecon-backups/backups/lecture-python/lecture-python-20251127.tar.gz
 ```
 
-### Backup Schedule
+## Pattern Matching Examples
 
-By default, backups run weekly on Sunday at 2 AM UTC. You can customize this in `.github/workflows/backup.yml`:
-
-```yaml
-on:
-  schedule:
-    - cron: '0 2 * * 0'  # Weekly on Sunday at 2 AM UTC
-```
-
-### Repository Pattern Matching
-
-Repositories are selected using Python regex patterns:
-
-- `lecture-.*` matches all repos starting with "lecture-"
-- `quantecon-.*` matches all repos starting with "quantecon-"
-- `^exact-match$` matches exactly "exact-match"
-
-## Testing Your Setup
-
-### Test Pattern Matching
-
-Create a test script to verify which repositories will be backed up:
-
-```python
-import os
-from github import Github
-from src.backup.repo_matcher import RepoMatcher
-
-github_token = os.getenv("GITHUB_TOKEN")
-github = Github(github_token)
-
-matcher = RepoMatcher(["lecture-.*"])
-org = github.get_organization("quantecon")
-
-print("Matching repositories:")
-for repo in org.get_repos():
-    if matcher.matches(repo.name):
-        print(f"  ✓ {repo.full_name}")
-```
-
-### Test S3 Upload
-
-Verify S3 credentials and bucket access:
-
-```bash
-# List bucket contents
-aws s3 ls s3://quantecon-repo-backups/backups/
-
-# Test write access
-echo "test" > test.txt
-aws s3 cp test.txt s3://quantecon-repo-backups/test/
-aws s3 rm s3://quantecon-repo-backups/test/test.txt
-rm test.txt
-```
-
-## Common Tasks
-
-### Force Re-backup
-
-Skip the check for existing backups:
-
-```bash
-python -m src.main --config config.yml --task backup --force
-```
-
-### Check Backup Status
-
-Generate a report of all backups:
-
-```bash
-python -m src.main --config config.yml --task report
-```
-
-### Backup Specific Organization
-
-Override the organization in config:
-
-```bash
-python -m src.main --config config.yml --task backup --organization my-org
-```
-
-### Enable Debug Logging
-
-```bash
-python -m src.main --config config.yml --task backup --verbose
-```
+| Pattern | Matches |
+|---------|---------|
+| `lecture-.*` | `lecture-python`, `lecture-julia`, `lecture-stats` |
+| `quantecon-.*` | `quantecon-notebooks`, `quantecon-py` |
+| `^exact-name$` | Only `exact-name` |
+| `.*-notes` | `lecture-notes`, `class-notes` |
 
 ## Troubleshooting
 
-### Issue: "GITHUB_TOKEN environment variable not set"
+### "GITHUB_TOKEN not set"
 
-**Solution**: Export the GitHub token:
 ```bash
 export GITHUB_TOKEN="ghp_your_token_here"
 ```
 
-### Issue: "Failed to upload to S3: Access Denied"
+### "Access Denied" on S3
 
-**Solutions**:
-1. Verify AWS credentials are correct
-2. Check S3 bucket exists and you have write permissions
-3. Verify IAM policy allows `s3:PutObject` on the bucket
+1. Check IAM role has correct permissions
+2. Verify OIDC trust policy references correct repository
+3. Ensure S3 bucket exists and is in correct region
 
-### Issue: "No repositories matched patterns"
+### "No repositories matched"
 
-**Solutions**:
-1. Check your patterns are correct Python regex
-2. Verify you have access to the organization
-3. Test patterns with the test script above
-
-### Issue: Backup too large or timing out
-
-**Solutions**:
-1. Exclude very large repositories from patterns
-2. Increase GitHub Actions timeout
-3. Consider backing up large repos separately
+1. Verify patterns are valid Python regex
+2. Check organization name is correct
+3. Ensure GitHub token has access to the organization
 
 ## Next Steps
 
-- Review [architecture documentation](docs/architecture.md)
-- Check [CHANGELOG.md](CHANGELOG.md) for latest updates
-- Read [.copilot-instructions.md](.copilot-instructions.md) for development guidelines
-- Add more repository patterns to your config
-- Set up notifications for backup failures (planned feature)
-- Configure retention policies (planned feature)
-
-## Getting Help
-
-- Check existing [GitHub Issues](https://github.com/quantecon/action-repo-maintenance/issues)
-- Review the documentation in the `docs/` directory
-- Contact the QuantEcon development team
-
----
-
-**Note**: This project is in active development. Features and configuration options may change before v1.0.0 release.
+- Review [README.md](README.md) for full documentation
+- Check [docs/architecture.md](docs/architecture.md) for technical details

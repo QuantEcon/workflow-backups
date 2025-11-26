@@ -1,4 +1,4 @@
-"""Main entry point for the action-repo-maintenance tool."""
+"""Main entry point for the workflow-backups tool."""
 
 import os
 import sys
@@ -167,7 +167,7 @@ def run_report(config: dict, args: argparse.Namespace) -> int:
 def main() -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="QuantEcon Repository Maintenance Action"
+        description="QuantEcon Repository Backup Workflow"
     )
     parser.add_argument(
         "--config",

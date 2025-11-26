@@ -8,37 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Initial project structure and repository setup
 - Repository backup functionality to AWS S3
 - Pattern-based repository selection using regex
-- S3Handler for managing uploads with verification
+- S3Handler for uploads with MD5 verification
 - RepoMatcher for filtering repositories by pattern
 - BackupManager for coordinating backup operations
-- GitHub Actions workflow for automated backups
+- GitHub Actions workflow with OIDC authentication
 - Configuration system using YAML
-- Comprehensive logging throughout the application
-- Development environment setup with Python tooling
-- Documentation structure including README and Copilot instructions
+- Backup reporting functionality
+- Comprehensive documentation
 
 ### Changed
-- N/A
-
-### Deprecated
-- N/A
+- Renamed project from `action-repo-maintenance` to `workflow-backups`
+- Adopted `workflow-` prefix convention for org-level automation
+- Switched to OIDC authentication (recommended over static credentials)
+- Simplified configuration by removing unused feature placeholders
 
 ### Removed
-- N/A
-
-### Fixed
-- N/A
-
-### Security
-- N/A
-
-## Release Notes
-
-Detailed release notes for each version are maintained in the `docs/releases/` directory.
+- Placeholder configuration for unimplemented features (health_checks, automation, retention)
+- Unused `requests` dependency
 
 ---
 
-**Note**: This project is currently in development. Features and APIs may change before the first stable release (v1.0.0).
+Release notes for each version are in `docs/releases/`.

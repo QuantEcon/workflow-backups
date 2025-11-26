@@ -1,138 +1,233 @@
-# QuantEcon Repository Maintenance Action
+# QuantEcon Repository Backup Workflow
 
-[![GitHub](https://img.shields.io/badge/github-QuantEcon%2Faction--repo--maintenance-blue?logo=github)](https://github.com/QuantEcon/action-repo-maintenance)
+[![GitHub](https://img.shields.io/badge/github-QuantEcon%2Fworkflow--backups-blue?logo=github)](https://github.com/QuantEcon/workflow-backups)
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> ⚠️ **CURRENTLY IN DEVELOPMENT** - This action is under active development. Features and APIs may change as we iterate on the implementation.
-
-A GitHub Action for automating maintenance tasks across QuantEcon repositories.
+A centralized workflow for backing up QuantEcon repositories to AWS S3.
 
 ## Overview
 
-This action automates routine maintenance tasks for the QuantEcon organization on GitHub, starting with repository backups and expandable to other maintenance operations.
+This workflow automatically backs up GitHub repositories to AWS S3 for disaster recovery and compliance. It runs from this single repository and backs up all matching repositories across the organization. It supports pattern-based repository selection, allowing you to backup specific repositories from an organization.
 
 ## Features
 
-### 🔄 Repository Backup (In Development)
+- **Pattern-based selection**: Use regex patterns to select which repositories to backup
+- **Mirror backups**: Complete repository backups including all branches, tags, and history
+- **S3 storage**: Secure storage in AWS S3 with upload verification
+- **Skip existing**: Avoid redundant backups with automatic duplicate detection
+- **Backup reporting**: Generate reports on backup status and storage usage
 
-Automatically backs up QuantEcon repositories to AWS S3 for disaster recovery and compliance.
+## Quick Start
 
-**Key Capabilities:**
-- Pattern-based repository selection using regex (e.g., `lecture-.*`)
-- Automated backup to AWS S3 bucket
-- Configurable backup schedules
-- Support for incremental and full backups
-- Backup verification and reporting
+### 1. Configure AWS IAM for OIDC Authentication (Recommended)
 
-## Configuration
+OIDC authentication is more secure than static credentials—no long-lived secrets to manage.
 
-Create a `config.yml` file in your workflow directory:
+#### Create IAM Identity Provider
+
+```bash
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com
+```
+
+#### Create IAM Role with Trust Policy
+
+Create a file `trust-policy.json`:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/workflow-backups:*"
+        }
+      }
+    }
+  ]
+}
+```
+
+Create the role:
+
+```bash
+aws iam create-role \
+  --role-name GitHubActionsBackupRole \
+  --assume-role-policy-document file://trust-policy.json
+```
+
+#### Attach S3 Permissions
+
+Create `s3-policy.json`:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:ListBucket",
+        "s3:HeadObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::YOUR_BUCKET_NAME",
+        "arn:aws:s3:::YOUR_BUCKET_NAME/*"
+      ]
+    }
+  ]
+}
+```
+
+```bash
+aws iam put-role-policy \
+  --role-name GitHubActionsBackupRole \
+  --policy-name S3BackupAccess \
+  --policy-document file://s3-policy.json
+```
+
+### 2. Configure GitHub Repository
+
+Add the following secret to your repository:
+
+- `AWS_ROLE_ARN`: The ARN of the IAM role (e.g., `arn:aws:iam::123456789012:role/GitHubActionsBackupRole`)
+
+Optionally add a variable:
+
+- `AWS_REGION`: AWS region (default: `us-east-1`)
+
+### 3. Create Configuration File
+
+Create `config.yml` in your repository:
 
 ```yaml
 backup:
   enabled: true
+  organization: "your-org"
   patterns:
-    - "lecture-.*"
-    - "quantecon-.*"
+    - "lecture-.*"      # Backup repos starting with "lecture-"
+    - "quantecon-.*"    # Backup repos starting with "quantecon-"
   s3:
-    bucket: "quantecon-repo-backups"
+    bucket: "your-backup-bucket"
     region: "us-east-1"
     prefix: "backups/"
 ```
 
-See `config.example.yml` for a complete configuration example.
+### 4. Use the Workflow
 
-## Prerequisites
-
-- Python 3.9+
-- AWS credentials configured (for S3 backups)
-- GitHub token with appropriate permissions
-
-## Usage
-
-### As a GitHub Action
+The included workflow (`.github/workflows/backup.yml`) runs weekly and can be triggered manually:
 
 ```yaml
-name: Repository Maintenance
+name: Repository Backup
 on:
   schedule:
     - cron: '0 2 * * 0'  # Weekly on Sunday at 2 AM UTC
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch:
 
 jobs:
   backup:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
-      
-      - uses: quantecon/action-repo-maintenance@v1
+      - uses: actions/setup-python@v5
         with:
-          task: backup
-          config: .github/config.yml
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+      - run: python -m src.main --config config.yml --task backup
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 ```
 
-### Local Development
+## Local Development
 
 ```bash
-# Install dependencies
+# Clone repository
+git clone https://github.com/quantecon/workflow-backups.git
+cd workflow-backups
+
+# Set up environment
+python -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 
-# Run backup task
-python -m src.backup.main --config config.yml
+# Configure AWS credentials locally
+export AWS_ACCESS_KEY_ID="your_key"
+export AWS_SECRET_ACCESS_KEY="your_secret"
+export GITHUB_TOKEN="your_token"
+
+# Run backup
+python -m src.main --config config.yml --task backup
 
 # Run tests
 pytest tests/
 ```
 
-## Architecture
+## CLI Options
 
-See [docs/architecture.md](docs/architecture.md) for detailed architecture documentation.
+```bash
+python -m src.main --help
 
-## Development Status
+Options:
+  --config PATH       Path to configuration file (default: config.yml)
+  --task {backup,report}  Task to run (default: backup)
+  --organization ORG  Override organization from config
+  --force            Force backup even if today's backup exists
+  --verbose          Enable debug logging
+```
 
-This project is in active development. Current focus:
+## Backup Storage Structure
 
-- [x] Project structure setup
-- [ ] S3 backup implementation
-- [ ] Repository pattern matching
-- [ ] Backup verification
-- [ ] Error handling and logging
-- [ ] Integration tests
-- [ ] Documentation completion
+Backups are stored in S3 with the following structure:
 
-## Contributing
+```
+s3://bucket-name/backups/
+├── repo-name/
+│   ├── repo-name-20251127.tar.gz
+│   ├── repo-name-20251120.tar.gz
+│   └── repo-name-20251113.tar.gz
+└── another-repo/
+    └── another-repo-20251127.tar.gz
+```
 
-Contributions are welcome! Please:
-
-1. Review the architecture documentation
-2. Check existing issues and PRs
-3. Follow the coding standards in `.copilot-instructions.md`
-4. Add tests for new features
-5. Update documentation
+Each backup includes metadata:
+- Repository full name
+- Backup timestamp
+- Default branch
+- Archive size
 
 ## Technology Stack
 
 - **Language**: Python 3.9+
 - **Cloud Storage**: AWS S3
 - **GitHub API**: PyGithub
+- **AWS SDK**: boto3
 - **Testing**: pytest
-- **CI/CD**: GitHub Actions
 
 ## License
 
-[Add appropriate license]
+MIT License - see [LICENSE](LICENSE) for details.
 
 ## Support
 
-For issues and questions:
 - Open an issue in this repository
 - Contact the QuantEcon development team
-
----
-
-**Note**: This is a QuantEcon internal tool. Please ensure you have appropriate permissions before using it with organization repositories.
