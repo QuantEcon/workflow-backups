@@ -82,4 +82,15 @@ class RepoMatcher:
         for repo in matched_repos:
             logger.debug(f"Matched repository: {repo.full_name}")
 
+        # Warn about exact repository names that weren't found
+        # (could be private repos not visible to the token)
+        if self.repositories:
+            found_names = {repo.name for repo in all_repos}
+            not_found = self.repositories - found_names
+            if not_found:
+                logger.warning(
+                    f"Configured repositories not found (may be private or misspelled): "
+                    f"{sorted(not_found)}"
+                )
+
         return matched_repos

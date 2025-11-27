@@ -94,6 +94,23 @@ class TestRepoMatcher:
         
         assert len(repos) == 0
 
+    def test_warns_on_not_found_repositories(self, mock_github_client, caplog):
+        """Test that a warning is logged for configured repos not found."""
+        import logging
+        
+        matcher = RepoMatcher(repositories=["other-repo", "missing-repo"])
+        
+        with caplog.at_level(logging.WARNING):
+            repos = matcher.filter_repositories(mock_github_client, "quantecon")
+        
+        # Should still return the repo that was found
+        assert len(repos) == 1
+        assert repos[0].name == "other-repo"
+        
+        # Should warn about the missing repo
+        assert "missing-repo" in caplog.text
+        assert "not found" in caplog.text.lower()
+
     def test_empty_patterns_and_repositories(self):
         """Test with empty pattern and repository lists."""
         matcher = RepoMatcher()
