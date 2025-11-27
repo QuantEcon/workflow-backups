@@ -22,13 +22,24 @@ def mock_github_client():
     client = Mock()
     org = Mock()
     
-    # Create mock repos
-    repos = [
-        Mock(name="lecture-python.myst", full_name="quantecon/lecture-python.myst"),
-        Mock(name="lecture-julia", full_name="quantecon/lecture-julia"),
-        Mock(name="quantecon-notebooks-python", full_name="quantecon/quantecon-notebooks-python"),
-        Mock(name="other-repo", full_name="quantecon/other-repo"),
-    ]
+    # Create mock repos with proper string name attributes
+    repo1 = Mock()
+    repo1.name = "lecture-python.myst"  # This is a real string, not a Mock
+    repo1.full_name = "quantecon/lecture-python.myst"
+    
+    repo2 = Mock()
+    repo2.name = "lecture-julia"
+    repo2.full_name = "quantecon/lecture-julia"
+    
+    repo3 = Mock()
+    repo3.name = "quantecon-notebooks-python"
+    repo3.full_name = "quantecon/quantecon-notebooks-python"
+    
+    repo4 = Mock()
+    repo4.name = "other-repo"
+    repo4.full_name = "quantecon/other-repo"
+    
+    repos = [repo1, repo2, repo3, repo4]
     
     org.get_repos.return_value = repos
     client.get_organization.return_value = org
