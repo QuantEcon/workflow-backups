@@ -53,7 +53,8 @@ class RepoMatcher:
         """
         logger.info(f"Fetching repositories for organization: {organization}")
         org = github_client.get_organization(organization)
-        all_repos = list(org.get_repos())
+        # Use type="all" to include private repositories
+        all_repos = list(org.get_repos(type="all"))
         logger.info(f"Found {len(all_repos)} total repositories")
 
         matched_repos = [repo for repo in all_repos if self.matches(repo.name)]

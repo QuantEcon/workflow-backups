@@ -41,7 +41,9 @@ def mock_github_client():
     
     repos = [repo1, repo2, repo3, repo4]
     
+    # Accept type parameter for get_repos (e.g., type="all")
     org.get_repos.return_value = repos
+    org.get_repos.side_effect = lambda **kwargs: repos
     client.get_organization.return_value = org
     
     return client
