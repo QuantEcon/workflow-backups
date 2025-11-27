@@ -110,6 +110,7 @@ python -m src.main --config config.yml --task backup --verbose # Debug logging
 - Feature branches from `main`
 - Update CHANGELOG.md with each PR
 - Tag releases with version numbers
+- **Always run `nox -s tests_quick` before committing/pushing**
 
 ## Security
 
