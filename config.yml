@@ -8,6 +8,7 @@ backup:
   repositories:
     - "continuous_time_mcs"     # Test repo
     - "QuantEcon.manual"        # Test repo
+    - "sphinx-tojupyter"        # Test repo
   
   # Repository name patterns (Python regex)
   patterns:
