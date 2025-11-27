@@ -50,7 +50,6 @@ htmlcov/
 .env.*.local
 
 # Configuration (local overrides)
-config.yml
 config.local.yml
 
 # AWS credentials

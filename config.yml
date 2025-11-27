@@ -1,0 +1,20 @@
+# QuantEcon Repository Backup Configuration
+
+backup:
+  enabled: true
+  organization: "QuantEcon"
+  
+  # Repository name patterns (Python regex)
+  patterns:
+    - "^continuous_time_mcs$"   # Test with single repo
+    # - "lecture-.*"            # lecture-python.myst, lecture-julia, etc.
+    # - "quantecon-.*"          # quantecon-notebooks-python, etc.
+  
+  # AWS S3 configuration
+  s3:
+    bucket: "backup-quantecon-github"
+    region: "us-east-1"
+    prefix: ""
+
+logging:
+  level: "INFO"
