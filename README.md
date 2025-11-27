@@ -109,6 +109,21 @@ Optionally add a variable:
 
 - `AWS_REGION`: AWS region (default: `us-east-1`)
 
+#### GitHub Token Permissions
+
+| Repository Type | Token Required | Notes |
+|-----------------|----------------|-------|
+| **Public repos** | `GITHUB_TOKEN` (default) | Works automatically, no setup needed |
+| **Private repos** | Personal Access Token (PAT) | Requires `repo` scope |
+
+For **public repositories only**, the default `GITHUB_TOKEN` works out of the box.
+
+To **backup private repositories**, create a PAT with `repo` scope and add it as a secret:
+
+- `REPO_BACKUP_TOKEN`: PAT with `repo` scope for private repository access
+
+The workflow automatically uses `REPO_BACKUP_TOKEN` if available, falling back to `GITHUB_TOKEN`.
+
 ### 3. Create Configuration File
 
 Create `config.yml` in your repository:
