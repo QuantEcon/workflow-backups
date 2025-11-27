@@ -200,7 +200,7 @@ Options:
 Backups are stored in S3 with the following structure:
 
 ```
-s3://bucket-name/backups/
+s3://bucket-name/
 ├── repo-name/
 │   ├── repo-name-20251127.tar.gz
 │   ├── repo-name-20251120.tar.gz
@@ -214,6 +214,28 @@ Each backup includes metadata:
 - Backup timestamp
 - Default branch
 - Archive size
+
+## Restoring a Backup
+
+To restore a repository from a backup:
+
+```bash
+# 1. Download the backup from S3
+aws s3 cp s3://bucket-name/repo-name/repo-name-20251127.tar.gz .
+
+# 2. Extract the archive (contains a bare git mirror)
+tar -xzf repo-name-20251127.tar.gz
+
+# 3. Clone from the bare repo to create a working repository
+git clone repo-name restored-repo
+
+# 4. You now have a full working repository
+cd restored-repo
+git branch -a   # View all branches
+git tag         # View all tags
+```
+
+The backup is a complete git mirror including all branches, tags, and full commit history.
 
 ## Technology Stack
 
