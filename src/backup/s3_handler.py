@@ -30,7 +30,8 @@ class S3Handler:
         """
         self.bucket_name = bucket_name
         self.region = region
-        self.prefix = prefix.rstrip("/") + "/"
+        # Handle empty prefix (no leading slash)
+        self.prefix = (prefix.rstrip("/") + "/") if prefix else ""
         self.s3_client = boto3.client("s3", region_name=region)
         logger.info(
             f"Initialized S3Handler for bucket '{bucket_name}' in region '{region}'"
@@ -56,16 +57,13 @@ class S3Handler:
         full_key = f"{self.prefix}{object_key}"
         
         try:
-            # Calculate MD5 hash for verification
-            md5_hash = self._calculate_md5(file_path)
-            
             # Prepare upload arguments
             extra_args: Dict[str, Any] = {}
             if metadata:
                 extra_args["Metadata"] = metadata
             
-            # Add checksum
-            extra_args["ContentMD5"] = md5_hash
+            # Use SHA256 checksum for verification (supported by upload_file)
+            extra_args["ChecksumAlgorithm"] = "SHA256"
             
             logger.info(f"Uploading {file_path} to s3://{self.bucket_name}/{full_key}")
             
