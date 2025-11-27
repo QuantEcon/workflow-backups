@@ -6,6 +6,19 @@ This is a centralized workflow for backing up QuantEcon repositories to AWS S3. 
 
 ## Development Guidelines
 
+### Testing with Nox
+
+Use `nox` for all testing and development tasks:
+
+```bash
+nox -s tests        # Run full test suite
+nox -s tests_quick  # Run tests without coverage
+nox -s lint         # Run linting (ruff)
+nox -s format       # Format code (black, isort)
+nox -s typecheck    # Type checking (mypy)
+nox -s coverage     # Run tests with coverage report
+```
+
 ### Documentation Standards
 
 1. **Do NOT create SUMMARY files for changes**
@@ -31,6 +44,7 @@ This is a centralized workflow for backing up QuantEcon repositories to AWS S3. 
 - Write tests for new features (>80% coverage)
 - Use pytest, mock external services
 - Tests go in `tests/` directory
+- Run tests with `nox -s tests`
 
 ### Error Handling
 - Use specific exception types
@@ -59,18 +73,36 @@ This is a centralized workflow for backing up QuantEcon repositories to AWS S3. 
 ```
 workflow-backups/
 ├── src/
-│   ├── backup/          # Backup functionality
-│   └── __init__.py
+│   ├── __init__.py
+│   ├── main.py              # CLI entry point
+│   └── backup/
+│       ├── backup_manager.py
+│       ├── repo_matcher.py
+│       └── s3_handler.py
 ├── tests/
 ├── docs/
 │   ├── releases/
-│   └── architecture.md
-├── .github/workflows/
+│   ├── architecture.md
+│   └── example_report.md
+├── .github/
+│   ├── workflows/backup.yml
+│   └── copilot-instructions.md
 ├── config.example.yml
+├── noxfile.py               # Test/dev automation
 ├── requirements.txt
 ├── pyproject.toml
 ├── CHANGELOG.md
 └── README.md
+```
+
+## CLI Usage
+
+```bash
+python -m src.main --config config.yml --task backup           # Run backup
+python -m src.main --config config.yml --task backup --dry-run # Preview only
+python -m src.main --config config.yml --task backup --force   # Force re-backup
+python -m src.main --config config.yml --task report           # Generate report
+python -m src.main --config config.yml --task backup --verbose # Debug logging
 ```
 
 ## Git Workflow

@@ -1,7 +1,7 @@
 """Test fixtures for backup tests."""
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import Mock, MagicMock
 
 
@@ -58,7 +58,7 @@ def mock_s3_client():
     # Mock head_object for verification
     client.head_object.return_value = {
         "ContentLength": 1024,
-        "LastModified": datetime.utcnow(),
+        "LastModified": datetime.now(timezone.utc),
     }
     
     return client

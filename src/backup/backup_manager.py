@@ -5,7 +5,7 @@ import tempfile
 import subprocess
 from pathlib import Path
 from typing import List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from github import Github
 from github.Repository import Repository
 
@@ -38,7 +38,7 @@ class BackupManager:
         logger.info("Initialized BackupManager")
 
     def backup_repositories(
-        self, organization: str, skip_existing: bool = True
+        self, organization: str, skip_existing: bool = True, dry_run: bool = False
     ) -> Dict[str, Any]:
         """
         Backup all matching repositories for an organization.
@@ -46,10 +46,13 @@ class BackupManager:
         Args:
             organization: GitHub organization name
             skip_existing: Skip repositories that already have today's backup
+            dry_run: If True, show what would be done without actually backing up
 
         Returns:
             Dictionary with backup results and statistics
         """
+        if dry_run:
+            logger.info("DRY RUN MODE - No actual backups will be performed")
         logger.info(f"Starting backup process for organization: {organization}")
         
         # Get matching repositories
@@ -60,7 +63,9 @@ class BackupManager:
             "successful": [],
             "failed": [],
             "skipped": [],
-            "timestamp": datetime.utcnow().isoformat(),
+            "would_backup": [],  # For dry-run mode
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "dry_run": dry_run,
         }
         
         for repo in repos:
@@ -68,7 +73,7 @@ class BackupManager:
                 logger.info(f"Processing repository: {repo.full_name}")
                 
                 # Generate backup filename
-                date_str = datetime.utcnow().strftime("%Y%m%d")
+                date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
                 backup_key = f"{repo.name}/{repo.name}-{date_str}.tar.gz"
                 
                 # Skip if backup exists and skip_existing is True
@@ -76,6 +81,14 @@ class BackupManager:
                     logger.info(f"Backup already exists, skipping: {backup_key}")
                     results["skipped"].append(
                         {"repo": repo.full_name, "reason": "already_exists"}
+                    )
+                    continue
+                
+                # In dry-run mode, just log what would happen
+                if dry_run:
+                    logger.info(f"[DRY RUN] Would backup: {repo.full_name} -> {backup_key}")
+                    results["would_backup"].append(
+                        {"repo": repo.full_name, "backup_key": backup_key}
                     )
                     continue
                 
@@ -95,10 +108,16 @@ class BackupManager:
                     {"repo": repo.full_name, "reason": str(e)}
                 )
         
-        logger.info(
-            f"Backup complete: {len(results['successful'])} successful, "
-            f"{len(results['failed'])} failed, {len(results['skipped'])} skipped"
-        )
+        if dry_run:
+            logger.info(
+                f"DRY RUN complete: {len(results['would_backup'])} would be backed up, "
+                f"{len(results['skipped'])} already exist"
+            )
+        else:
+            logger.info(
+                f"Backup complete: {len(results['successful'])} successful, "
+                f"{len(results['failed'])} failed, {len(results['skipped'])} skipped"
+            )
         
         return results
 
@@ -140,7 +159,7 @@ class BackupManager:
                 # Prepare metadata
                 metadata = {
                     "repository": repo.full_name,
-                    "backup_date": datetime.utcnow().isoformat(),
+                    "backup_date": datetime.now(timezone.utc).isoformat(),
                     "default_branch": repo.default_branch,
                     "size_bytes": str(archive_path.stat().st_size),
                 }

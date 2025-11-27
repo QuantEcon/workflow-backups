@@ -46,6 +46,7 @@ class TestRunBackup:
         args = argparse.Namespace(
             organization=None,
             force=False,
+            dry_run=False,
         )
         
         result = run_backup(sample_config, args)
@@ -56,7 +57,7 @@ class TestRunBackup:
     def test_backup_disabled(self):
         """Test backup exits when disabled in config."""
         config = {"backup": {"enabled": False}}
-        args = argparse.Namespace(organization=None, force=False)
+        args = argparse.Namespace(organization=None, force=False, dry_run=False)
         
         result = run_backup(config, args)
         
@@ -77,12 +78,43 @@ class TestRunBackup:
         }
         mock_manager.return_value = mock_manager_instance
         
-        args = argparse.Namespace(organization=None, force=False)
+        args = argparse.Namespace(organization=None, force=False, dry_run=False)
         
         result = run_backup(sample_config, args)
         
         assert result == 0
         mock_manager_instance.backup_repositories.assert_called_once()
+
+    @patch.dict("os.environ", {"GITHUB_TOKEN": "test-token"})
+    @patch("src.main.BackupManager")
+    @patch("src.main.S3Handler")
+    @patch("src.main.RepoMatcher")
+    def test_backup_dry_run(self, mock_matcher, mock_s3, mock_manager, sample_config):
+        """Test dry-run mode returns success without actual backups."""
+        mock_manager_instance = Mock()
+        mock_manager_instance.backup_repositories.return_value = {
+            "total_repos": 2,
+            "successful": [],
+            "failed": [],
+            "skipped": [],
+            "would_backup": [
+                {"repo": "org/repo1", "backup_key": "repo1/repo1-20251127.tar.gz"},
+                {"repo": "org/repo2", "backup_key": "repo2/repo2-20251127.tar.gz"},
+            ],
+            "dry_run": True,
+        }
+        mock_manager.return_value = mock_manager_instance
+        
+        args = argparse.Namespace(organization=None, force=False, dry_run=True)
+        
+        result = run_backup(sample_config, args)
+        
+        assert result == 0
+        mock_manager_instance.backup_repositories.assert_called_once_with(
+            organization="quantecon",
+            skip_existing=True,
+            dry_run=True,
+        )
 
     @patch.dict("os.environ", {"GITHUB_TOKEN": "test-token"})
     @patch("src.main.BackupManager")
@@ -99,7 +131,7 @@ class TestRunBackup:
         }
         mock_manager.return_value = mock_manager_instance
         
-        args = argparse.Namespace(organization=None, force=False)
+        args = argparse.Namespace(organization=None, force=False, dry_run=False)
         
         result = run_backup(sample_config, args)
         
@@ -120,13 +152,14 @@ class TestRunBackup:
         }
         mock_manager.return_value = mock_manager_instance
         
-        args = argparse.Namespace(organization="other-org", force=False)
+        args = argparse.Namespace(organization="other-org", force=False, dry_run=False)
         
         result = run_backup(sample_config, args)
         
         mock_manager_instance.backup_repositories.assert_called_once_with(
             organization="other-org",
             skip_existing=True,
+            dry_run=False,
         )
 
 

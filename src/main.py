@@ -80,22 +80,34 @@ def run_backup(config: dict, args: argparse.Namespace) -> int:
         results = backup_manager.backup_repositories(
             organization=organization,
             skip_existing=not args.force,
+            dry_run=args.dry_run,
         )
 
         # Log results
         logger.info("=" * 60)
-        logger.info("Backup Results:")
-        logger.info(f"Total repositories: {results['total_repos']}")
-        logger.info(f"Successful: {len(results['successful'])}")
-        logger.info(f"Failed: {len(results['failed'])}")
-        logger.info(f"Skipped: {len(results['skipped'])}")
-        logger.info("=" * 60)
+        if results.get("dry_run"):
+            logger.info("DRY RUN Results:")
+            logger.info(f"Total repositories matched: {results['total_repos']}")
+            logger.info(f"Would backup: {len(results['would_backup'])}")
+            logger.info(f"Already exist (would skip): {len(results['skipped'])}")
+            logger.info("=" * 60)
+            if results["would_backup"]:
+                logger.info("Repositories that would be backed up:")
+                for item in results["would_backup"]:
+                    logger.info(f"  - {item['repo']} -> {item['backup_key']}")
+        else:
+            logger.info("Backup Results:")
+            logger.info(f"Total repositories: {results['total_repos']}")
+            logger.info(f"Successful: {len(results['successful'])}")
+            logger.info(f"Failed: {len(results['failed'])}")
+            logger.info(f"Skipped: {len(results['skipped'])}")
+            logger.info("=" * 60)
 
-        if results["failed"]:
-            logger.error("Failed repositories:")
-            for failure in results["failed"]:
-                logger.error(f"  - {failure}")
-            return 1
+            if results["failed"]:
+                logger.error("Failed repositories:")
+                for failure in results["failed"]:
+                    logger.error(f"  - {failure}")
+                return 1
 
         return 0
 
@@ -190,6 +202,11 @@ def main() -> int:
         "--force",
         action="store_true",
         help="Force backup even if it already exists",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be backed up without actually doing it",
     )
     parser.add_argument(
         "--verbose",
