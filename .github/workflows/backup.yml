@@ -23,6 +23,7 @@ jobs:
     permissions:
       id-token: write   # Required for OIDC authentication
       contents: read
+      issues: write     # Required for creating/updating issues
       
     steps:
       - name: Checkout repository
@@ -59,17 +60,78 @@ jobs:
           fi
       
       - name: Generate backup report
+        id: report
         if: always()
         env:
           GITHUB_TOKEN: ${{ secrets.REPO_BACKUP_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
-          python -m src.main --config config.yml --task report
+          python -m src.main --config config.yml --task report 2>&1 | tee /tmp/report.txt
+          echo "report<<EOF" >> $GITHUB_OUTPUT
+          cat /tmp/report.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
       
-      - name: Upload logs as artifact
+      - name: Create or update backup report issue
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/github-script@v7
         with:
-          name: backup-logs-${{ github.run_number }}
-          path: |
-            *.log
-          retention-days: 30
+          script: |
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            const date = new Date().toISOString().split('T')[0];
+            const jobStatus = '${{ job.status }}';
+            const isFailure = jobStatus === 'failure';
+            
+            // Build issue body
+            let body = `## Backup Run: ${date}\n\n`;
+            body += `**Status:** ${jobStatus === 'success' ? '✅ Success' : '❌ Failed'}\n`;
+            body += `**Workflow Run:** [View Details](${runUrl})\n\n`;
+            body += `### Report Output\n\n`;
+            body += '```\n';
+            body += `${{ steps.report.outputs.report }}`;
+            body += '\n```\n\n';
+            
+            if (isFailure) {
+              body += `\n---\n⚠️ **Attention Required** @mmcky\n`;
+            }
+            
+            body += `\n---\n*Last updated: ${new Date().toISOString()}*`;
+            
+            // Find existing issue with title "Weekly Backup Report"
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'backup-report'
+            });
+            
+            const existingIssue = issues.data.find(i => i.title === 'Weekly Backup Report');
+            
+            if (existingIssue) {
+              // Update existing issue
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: body
+              });
+              
+              // Add comment for this run
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: `### Run ${date} - ${jobStatus === 'success' ? '✅ Success' : '❌ Failed'}\n\n[View workflow run](${runUrl})${isFailure ? '\n\n@mmcky - backup failed, please investigate.' : ''}`
+              });
+              
+              console.log(`Updated issue #${existingIssue.number}`);
+            } else {
+              // Create new issue
+              const newIssue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'Weekly Backup Report',
+                body: body,
+                labels: ['backup-report']
+              });
+              
+              console.log(`Created issue #${newIssue.data.number}`);
+            }
