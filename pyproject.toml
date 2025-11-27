@@ -12,7 +12,7 @@ license = {text = "MIT"}
 authors = [
     {name = "QuantEcon", email = "admin@quantecon.org"}
 ]
-keywords = ["github", "action", "backup", "s3", "aws"]
+keywords = ["github", "workflow", "backup", "s3", "aws"]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Developers",
