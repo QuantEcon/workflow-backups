@@ -61,7 +61,8 @@ def run_backup(config: dict, args: argparse.Namespace) -> int:
         )
 
         patterns = backup_config.get("patterns", [])
-        repo_matcher = RepoMatcher(patterns)
+        repositories = backup_config.get("repositories", [])
+        repo_matcher = RepoMatcher(patterns=patterns, repositories=repositories)
 
         backup_manager = BackupManager(
             github_token=github_token,
@@ -143,7 +144,8 @@ def run_report(config: dict, args: argparse.Namespace) -> int:
         )
 
         patterns = backup_config.get("patterns", [])
-        repo_matcher = RepoMatcher(patterns)
+        repositories = backup_config.get("repositories", [])
+        repo_matcher = RepoMatcher(patterns=patterns, repositories=repositories)
 
         backup_manager = BackupManager(
             github_token=github_token,

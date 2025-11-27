@@ -2,7 +2,7 @@
 
 import re
 import logging
-from typing import List, Pattern
+from typing import List, Optional, Pattern, Set
 from github import Github
 from github.Repository import Repository
 
@@ -10,28 +10,45 @@ logger = logging.getLogger(__name__)
 
 
 class RepoMatcher:
-    """Matches repositories based on regex patterns."""
+    """Matches repositories based on regex patterns and exact names."""
 
-    def __init__(self, patterns: List[str]) -> None:
+    def __init__(
+        self,
+        patterns: Optional[List[str]] = None,
+        repositories: Optional[List[str]] = None,
+    ) -> None:
         """
         Initialize the repository matcher.
 
         Args:
             patterns: List of regex patterns to match repository names
+            repositories: List of exact repository names to match
         """
-        self.patterns: List[Pattern[str]] = [re.compile(pattern) for pattern in patterns]
-        logger.info(f"Initialized RepoMatcher with {len(self.patterns)} patterns")
+        self.patterns: List[Pattern[str]] = [
+            re.compile(pattern) for pattern in (patterns or [])
+        ]
+        self.repositories: Set[str] = set(repositories or [])
+        logger.info(
+            f"Initialized RepoMatcher with {len(self.patterns)} patterns "
+            f"and {len(self.repositories)} exact repositories"
+        )
 
     def matches(self, repo_name: str) -> bool:
         """
-        Check if a repository name matches any of the configured patterns.
+        Check if a repository name matches any pattern or exact name.
 
         Args:
             repo_name: The repository name to check
 
         Returns:
-            True if the repository matches any pattern, False otherwise
+            True if the repository matches any pattern or exact name, False otherwise
         """
+        # Check exact repository names first (fast set lookup)
+        if repo_name in self.repositories:
+            logger.debug(f"Repository '{repo_name}' matched exact name")
+            return True
+        
+        # Check regex patterns
         for pattern in self.patterns:
             if pattern.match(repo_name):
                 logger.debug(f"Repository '{repo_name}' matched pattern: {pattern.pattern}")

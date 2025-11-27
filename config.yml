@@ -4,10 +4,13 @@ backup:
   enabled: true
   organization: "QuantEcon"
   
+  # Exact repository names (no regex needed)
+  repositories:
+    - "continuous_time_mcs"     # Test repo
+    - "QuantEcon.manual"        # Test repo
+  
   # Repository name patterns (Python regex)
   patterns:
-    - "^continuous_time_mcs$"   # Test repo
-    - "^QuantEcon\\.manual$"    # Test repo (note: . must be escaped in regex)
     # - "lecture-.*"            # lecture-python.myst, lecture-julia, etc.
     # - "quantecon-.*"          # quantecon-notebooks-python, etc.
   

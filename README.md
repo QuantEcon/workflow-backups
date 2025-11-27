@@ -132,9 +132,17 @@ Create `config.yml` in your repository:
 backup:
   enabled: true
   organization: "your-org"
+  
+  # Exact repository names (simple, no regex needed)
+  repositories:
+    - "my-important-repo"
+    - "another.repo"
+  
+  # Regex patterns for matching multiple repos
   patterns:
     - "lecture-.*"      # Backup repos starting with "lecture-"
     - "quantecon-.*"    # Backup repos starting with "quantecon-"
+  
   s3:
     bucket: "your-backup-bucket"
     region: "us-east-1"

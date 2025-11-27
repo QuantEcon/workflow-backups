@@ -11,12 +11,17 @@ backup:
   # GitHub organization to backup
   organization: "quantecon"
   
+  # Exact repository names (no regex needed)
+  # Use this for specific repos - cleaner than regex for individual repos
+  repositories:
+    - "my-important-repo"
+    - "QuantEcon.manual"        # Dots and special chars work as-is
+  
   # Repository name patterns (Python regex)
-  # Matches repositories whose names match any of these patterns
+  # Use this for matching multiple repos with patterns
   patterns:
     - "lecture-.*"              # Matches: lecture-python.myst, lecture-julia, etc.
     - "quantecon-.*"            # Matches: quantecon-notebooks-python, etc.
-    - "example-repo"            # Exact match for specific repo
   
   # AWS S3 configuration
   s3:
