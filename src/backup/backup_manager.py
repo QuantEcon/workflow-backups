@@ -32,6 +32,7 @@ class BackupManager:
             s3_handler: Configured S3 handler for uploads
             repo_matcher: Repository pattern matcher
         """
+        self.github_token = github_token
         self.github = Github(github_token)
         self.s3_handler = s3_handler
         self.repo_matcher = repo_matcher
@@ -139,9 +140,15 @@ class BackupManager:
             
             try:
                 # Clone repository (mirror for complete backup)
-                logger.info(f"Cloning repository: {repo.clone_url}")
+                # Use authenticated URL for private repos
+                clone_url = repo.clone_url
+                if self.github_token and clone_url.startswith("https://"):
+                    # Insert token into URL: https://github.com/... -> https://token@github.com/...
+                    clone_url = clone_url.replace("https://", f"https://x-access-token:{self.github_token}@")
+                
+                logger.info(f"Cloning repository: {repo.clone_url}")  # Log without token
                 subprocess.run(
-                    ["git", "clone", "--mirror", repo.clone_url, str(repo_path)],
+                    ["git", "clone", "--mirror", clone_url, str(repo_path)],
                     check=True,
                     capture_output=True,
                     text=True,
