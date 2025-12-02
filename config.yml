@@ -15,6 +15,7 @@ backup:
     - "lecture-wasm"            # Test repo
     - "lecture-python-advanced.myst"  # Test repo (large lecture site)
     - "lecture-python-intro"          # Test repo (large lecture site)
+    - "lecture-python.myst"           # Test repo (largest lecture site)
   
   # Repository name patterns (Python regex)
   patterns:
