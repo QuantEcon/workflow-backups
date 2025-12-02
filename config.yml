@@ -12,6 +12,7 @@ backup:
   
   # Repository name patterns (Python regex)
   patterns:
+    - "action-.*"               # Test pattern: 5 repos (~10 MB total)
     # - "lecture-.*"            # lecture-python.myst, lecture-julia, etc.
     # - "quantecon-.*"          # quantecon-notebooks-python, etc.
   
