@@ -12,6 +12,7 @@ backup:
     - "continuous_time_mcs"     # Test repo
     - "QuantEcon.manual"        # Test repo
     - "sphinx-tojupyter"        # Test repo
+    - "lecture-wasm"            # Test repo
   
   # Repository name patterns (Python regex)
   patterns:
