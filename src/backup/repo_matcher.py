@@ -1,8 +1,11 @@
 """Repository pattern matcher for selecting repositories to backup."""
 
-import re
+from __future__ import annotations
+
 import logging
-from typing import List, Optional, Pattern, Set
+import re
+from re import Pattern
+
 from github import Github
 from github.Repository import Repository
 
@@ -14,8 +17,11 @@ class RepoMatcher:
 
     def __init__(
         self,
-        patterns: Optional[List[str]] = None,
-        repositories: Optional[List[str]] = None,
+        patterns: list[str] | None = None,
+        repositories: list[str] | None = None,
+        exclude_archived: bool = False,
+        exclude_patterns: list[str] | None = None,
+        exclude_repositories: list[str] | None = None,
     ) -> None:
         """
         Initialize the repository matcher.
@@ -23,14 +29,23 @@ class RepoMatcher:
         Args:
             patterns: List of regex patterns to match repository names
             repositories: List of exact repository names to match
+            exclude_archived: If True, skip archived repositories
+            exclude_patterns: List of regex patterns to exclude repository names
+            exclude_repositories: List of exact repository names to exclude
         """
-        self.patterns: List[Pattern[str]] = [
-            re.compile(pattern) for pattern in (patterns or [])
+        self.patterns: list[Pattern[str]] = [re.compile(pattern) for pattern in (patterns or [])]
+        self.repositories: set[str] = set(repositories or [])
+        self.exclude_archived = exclude_archived
+        self.exclude_patterns: list[Pattern[str]] = [
+            re.compile(pattern) for pattern in (exclude_patterns or [])
         ]
-        self.repositories: Set[str] = set(repositories or [])
+        self.exclude_repositories: set[str] = set(exclude_repositories or [])
         logger.info(
-            f"Initialized RepoMatcher with {len(self.patterns)} patterns "
-            f"and {len(self.repositories)} exact repositories"
+            f"Initialized RepoMatcher with {len(self.patterns)} patterns, "
+            f"{len(self.repositories)} exact repositories, "
+            f"exclude_archived={exclude_archived}, "
+            f"{len(self.exclude_patterns)} exclude patterns, "
+            f"{len(self.exclude_repositories)} exclude repositories"
         )
 
     def matches(self, repo_name: str) -> bool:
@@ -47,7 +62,7 @@ class RepoMatcher:
         if repo_name in self.repositories:
             logger.debug(f"Repository '{repo_name}' matched exact name")
             return True
-        
+
         # Check regex patterns
         for pattern in self.patterns:
             if pattern.match(repo_name):
@@ -55,9 +70,49 @@ class RepoMatcher:
                 return True
         return False
 
-    def filter_repositories(
-        self, github_client: Github, organization: str
-    ) -> List[Repository]:
+    def is_excluded(self, repo_name: str) -> bool:
+        """
+        Check if a repository name should be excluded.
+
+        Args:
+            repo_name: The repository name to check
+
+        Returns:
+            True if the repository should be excluded, False otherwise
+        """
+        # Check exact exclude names first (fast set lookup)
+        if repo_name in self.exclude_repositories:
+            logger.debug(f"Repository '{repo_name}' excluded by exact name")
+            return True
+
+        # Check exclude patterns
+        for pattern in self.exclude_patterns:
+            if pattern.match(repo_name):
+                logger.debug(f"Repository '{repo_name}' excluded by pattern: {pattern.pattern}")
+                return True
+        return False
+
+    def _log_repo_list(self, repo_names: list[str], num_columns: int = 3) -> None:
+        """
+        Log a list of repository names in a formatted multi-column layout.
+
+        Args:
+            repo_names: Sorted list of repository names to log
+            num_columns: Number of columns to display (default: 3)
+        """
+        if not repo_names:
+            return
+
+        # Calculate column width based on longest name
+        max_width = max(len(name) for name in repo_names) + 2
+
+        # Build rows
+        for i in range(0, len(repo_names), num_columns):
+            row_items = repo_names[i : i + num_columns]
+            row = "  " + "".join(name.ljust(max_width) for name in row_items)
+            logger.info(row)
+
+    def filter_repositories(self, github_client: Github, organization: str) -> list[Repository]:
         """
         Filter repositories from an organization based on configured patterns.
 
@@ -74,10 +129,27 @@ class RepoMatcher:
         all_repos = list(org.get_repos(type="all"))
         logger.info(f"Found {len(all_repos)} total repositories")
 
+        # Filter out archived repos if requested
+        if self.exclude_archived:
+            archived_count = sum(1 for repo in all_repos if repo.archived)
+            all_repos = [repo for repo in all_repos if not repo.archived]
+            logger.info(
+                f"Excluding {archived_count} archived repositories, " f"{len(all_repos)} remaining"
+            )
+
         matched_repos = [repo for repo in all_repos if self.matches(repo.name)]
-        logger.info(
-            f"Matched {len(matched_repos)} repositories out of {len(all_repos)} total"
-        )
+        logger.info(f"Matched {len(matched_repos)} repositories out of {len(all_repos)} total")
+
+        # Apply exclusions
+        if self.exclude_patterns or self.exclude_repositories:
+            excluded_repos = [repo for repo in matched_repos if self.is_excluded(repo.name)]
+            if excluded_repos:
+                excluded_names = sorted(repo.name for repo in excluded_repos)
+                logger.info(f"Excluded {len(excluded_repos)} repositories by exclude rules:")
+                # Format in columns for readability
+                self._log_repo_list(excluded_names)
+            matched_repos = [repo for repo in matched_repos if not self.is_excluded(repo.name)]
+            logger.info(f"{len(matched_repos)} repositories remaining after exclusions")
 
         for repo in matched_repos:
             logger.debug(f"Matched repository: {repo.full_name}")

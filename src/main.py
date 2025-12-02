@@ -1,14 +1,14 @@
 """Main entry point for the workflow-backups tool."""
 
+import argparse
+import logging
 import os
 import sys
-import logging
-import argparse
 from pathlib import Path
-from typing import Optional
+
 import yaml
 
-from src.backup import BackupManager, S3Handler, RepoMatcher
+from src.backup import BackupManager, RepoMatcher, S3Handler
 
 # Configure logging
 logging.basicConfig(
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 def load_config(config_path: Path) -> dict:
     """Load configuration from YAML file."""
     logger.info(f"Loading configuration from: {config_path}")
-    with open(config_path, "r") as f:
+    with open(config_path) as f:
         config = yaml.safe_load(f)
     return config
 
@@ -62,7 +62,16 @@ def run_backup(config: dict, args: argparse.Namespace) -> int:
 
         patterns = backup_config.get("patterns", [])
         repositories = backup_config.get("repositories", [])
-        repo_matcher = RepoMatcher(patterns=patterns, repositories=repositories)
+        exclude_archived = backup_config.get("exclude_archived", False)
+        exclude_patterns = backup_config.get("exclude_patterns", [])
+        exclude_repositories = backup_config.get("exclude_repositories", [])
+        repo_matcher = RepoMatcher(
+            patterns=patterns,
+            repositories=repositories,
+            exclude_archived=exclude_archived,
+            exclude_patterns=exclude_patterns,
+            exclude_repositories=exclude_repositories,
+        )
 
         backup_manager = BackupManager(
             github_token=github_token,
@@ -145,7 +154,16 @@ def run_report(config: dict, args: argparse.Namespace) -> int:
 
         patterns = backup_config.get("patterns", [])
         repositories = backup_config.get("repositories", [])
-        repo_matcher = RepoMatcher(patterns=patterns, repositories=repositories)
+        exclude_archived = backup_config.get("exclude_archived", False)
+        exclude_patterns = backup_config.get("exclude_patterns", [])
+        exclude_repositories = backup_config.get("exclude_repositories", [])
+        repo_matcher = RepoMatcher(
+            patterns=patterns,
+            repositories=repositories,
+            exclude_archived=exclude_archived,
+            exclude_patterns=exclude_patterns,
+            exclude_repositories=exclude_repositories,
+        )
 
         backup_manager = BackupManager(
             github_token=github_token,
@@ -166,9 +184,7 @@ def run_report(config: dict, args: argparse.Namespace) -> int:
         logger.info("=" * 60)
         logger.info(f"Total repositories monitored: {report['total_repos']}")
         logger.info(f"Repositories with backups: {report['repos_with_backups']}")
-        logger.info(
-            f"Total backup size: {report['total_backup_size'] / (1024**3):.2f} GB"
-        )
+        logger.info(f"Total backup size: {report['total_backup_size'] / (1024**3):.2f} GB")
         logger.info("=" * 60)
 
         return 0
@@ -180,9 +196,7 @@ def run_report(config: dict, args: argparse.Namespace) -> int:
 
 def main() -> int:
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="QuantEcon Repository Backup Workflow"
-    )
+    parser = argparse.ArgumentParser(description="QuantEcon Repository Backup Workflow")
     parser.add_argument(
         "--config",
         type=Path,

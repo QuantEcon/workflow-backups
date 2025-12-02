@@ -1,11 +1,14 @@
 """Main backup manager coordinating repository backups to S3."""
 
+from __future__ import annotations
+
 import logging
-import tempfile
 import subprocess
-from pathlib import Path
-from typing import List, Dict, Any
+import tempfile
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
 from github import Github
 from github.Repository import Repository
 
@@ -40,7 +43,7 @@ class BackupManager:
 
     def backup_repositories(
         self, organization: str, skip_existing: bool = True, dry_run: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Backup all matching repositories for an organization.
 
@@ -55,10 +58,10 @@ class BackupManager:
         if dry_run:
             logger.info("DRY RUN MODE - No actual backups will be performed")
         logger.info(f"Starting backup process for organization: {organization}")
-        
+
         # Get matching repositories
         repos = self.repo_matcher.filter_repositories(self.github, organization)
-        
+
         results = {
             "total_repos": len(repos),
             "successful": [],
@@ -68,23 +71,21 @@ class BackupManager:
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "dry_run": dry_run,
         }
-        
+
         for repo in repos:
             try:
                 logger.info(f"Processing repository: {repo.full_name}")
-                
+
                 # Generate backup filename
                 date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
                 backup_key = f"{repo.name}/{repo.name}-{date_str}.tar.gz"
-                
+
                 # Skip if backup exists and skip_existing is True
                 if skip_existing and self.s3_handler.backup_exists(backup_key):
                     logger.info(f"Backup already exists, skipping: {backup_key}")
-                    results["skipped"].append(
-                        {"repo": repo.full_name, "reason": "already_exists"}
-                    )
+                    results["skipped"].append({"repo": repo.full_name, "reason": "already_exists"})
                     continue
-                
+
                 # In dry-run mode, just log what would happen
                 if dry_run:
                     logger.info(f"[DRY RUN] Would backup: {repo.full_name} -> {backup_key}")
@@ -92,23 +93,19 @@ class BackupManager:
                         {"repo": repo.full_name, "backup_key": backup_key}
                     )
                     continue
-                
+
                 # Perform backup
                 success = self._backup_single_repo(repo, backup_key)
-                
+
                 if success:
                     results["successful"].append(repo.full_name)
                 else:
-                    results["failed"].append(
-                        {"repo": repo.full_name, "reason": "upload_failed"}
-                    )
-                    
+                    results["failed"].append({"repo": repo.full_name, "reason": "upload_failed"})
+
             except Exception as e:
                 logger.error(f"Failed to backup {repo.full_name}: {e}")
-                results["failed"].append(
-                    {"repo": repo.full_name, "reason": str(e)}
-                )
-        
+                results["failed"].append({"repo": repo.full_name, "reason": str(e)})
+
         if dry_run:
             logger.info(
                 f"DRY RUN complete: {len(results['would_backup'])} would be backed up, "
@@ -119,7 +116,7 @@ class BackupManager:
                 f"Backup complete: {len(results['successful'])} successful, "
                 f"{len(results['failed'])} failed, {len(results['skipped'])} skipped"
             )
-        
+
         return results
 
     def _backup_single_repo(self, repo: Repository, backup_key: str) -> bool:
@@ -137,15 +134,17 @@ class BackupManager:
             temp_path = Path(temp_dir)
             repo_path = temp_path / repo.name
             archive_path = temp_path / f"{repo.name}.tar.gz"
-            
+
             try:
                 # Clone repository (mirror for complete backup)
                 # Use authenticated URL for private repos
                 clone_url = repo.clone_url
                 if self.github_token and clone_url.startswith("https://"):
                     # Insert token into URL: https://github.com/... -> https://token@github.com/...
-                    clone_url = clone_url.replace("https://", f"https://x-access-token:{self.github_token}@")
-                
+                    clone_url = clone_url.replace(
+                        "https://", f"https://x-access-token:{self.github_token}@"
+                    )
+
                 logger.info(f"Cloning repository: {repo.clone_url}")  # Log without token
                 subprocess.run(
                     ["git", "clone", "--mirror", clone_url, str(repo_path)],
@@ -153,7 +152,7 @@ class BackupManager:
                     capture_output=True,
                     text=True,
                 )
-                
+
                 # Create tarball
                 logger.info(f"Creating archive: {archive_path}")
                 subprocess.run(
@@ -162,7 +161,7 @@ class BackupManager:
                     capture_output=True,
                     text=True,
                 )
-                
+
                 # Prepare metadata
                 metadata = {
                     "repository": repo.full_name,
@@ -170,14 +169,12 @@ class BackupManager:
                     "default_branch": repo.default_branch,
                     "size_bytes": str(archive_path.stat().st_size),
                 }
-                
+
                 # Upload to S3
-                success = self.s3_handler.upload_file(
-                    archive_path, backup_key, metadata
-                )
-                
+                success = self.s3_handler.upload_file(archive_path, backup_key, metadata)
+
                 return success
-                
+
             except subprocess.CalledProcessError as e:
                 logger.error(f"Git/tar command failed: {e.stderr}")
                 return False
@@ -185,7 +182,7 @@ class BackupManager:
                 logger.error(f"Backup failed for {repo.full_name}: {e}")
                 return False
 
-    def get_backup_report(self, organization: str) -> Dict[str, Any]:
+    def get_backup_report(self, organization: str) -> dict[str, Any]:
         """
         Generate a report of all backups for an organization.
 
@@ -196,7 +193,7 @@ class BackupManager:
             Dictionary containing backup statistics and details
         """
         repos = self.repo_matcher.filter_repositories(self.github, organization)
-        
+
         report = {
             "organization": organization,
             "total_repos": len(repos),
@@ -204,19 +201,19 @@ class BackupManager:
             "total_backup_size": 0,
             "repositories": {},
         }
-        
+
         for repo in repos:
             backups = self.s3_handler.list_backups(repo.name)
             if backups:
                 report["repos_with_backups"] += 1
                 total_size = sum(b["size"] for b in backups)
                 report["total_backup_size"] += total_size
-                
+
                 report["repositories"][repo.name] = {
                     "backup_count": len(backups),
                     "total_size": total_size,
                     "latest_backup": max(b["last_modified"] for b in backups),
                     "backups": backups,
                 }
-        
+
         return report

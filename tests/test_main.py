@@ -1,11 +1,11 @@
 """Unit tests for main module."""
 
-import pytest
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
 import argparse
+from unittest.mock import Mock, patch
 
-from src.main import load_config, run_backup, run_report, main
+import pytest
+
+from src.main import load_config, main, run_backup, run_report
 
 
 class TestLoadConfig:
@@ -14,7 +14,8 @@ class TestLoadConfig:
     def test_load_config_success(self, tmp_path):
         """Test loading valid config file."""
         config_file = tmp_path / "config.yml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 backup:
   enabled: true
   organization: quantecon
@@ -23,10 +24,11 @@ backup:
   s3:
     bucket: test-bucket
     region: us-east-1
-""")
-        
+"""
+        )
+
         config = load_config(config_file)
-        
+
         assert config["backup"]["enabled"] is True
         assert config["backup"]["organization"] == "quantecon"
         assert "lecture-.*" in config["backup"]["patterns"]
@@ -48,9 +50,9 @@ class TestRunBackup:
             force=False,
             dry_run=False,
         )
-        
+
         result = run_backup(sample_config, args)
-        
+
         assert result == 1
 
     @patch.dict("os.environ", {"GITHUB_TOKEN": "test-token"})
@@ -58,9 +60,9 @@ class TestRunBackup:
         """Test backup exits when disabled in config."""
         config = {"backup": {"enabled": False}}
         args = argparse.Namespace(organization=None, force=False, dry_run=False)
-        
+
         result = run_backup(config, args)
-        
+
         assert result == 0
 
     @patch.dict("os.environ", {"GITHUB_TOKEN": "test-token"})
@@ -77,11 +79,11 @@ class TestRunBackup:
             "skipped": [],
         }
         mock_manager.return_value = mock_manager_instance
-        
+
         args = argparse.Namespace(organization=None, force=False, dry_run=False)
-        
+
         result = run_backup(sample_config, args)
-        
+
         assert result == 0
         mock_manager_instance.backup_repositories.assert_called_once()
 
@@ -104,11 +106,11 @@ class TestRunBackup:
             "dry_run": True,
         }
         mock_manager.return_value = mock_manager_instance
-        
+
         args = argparse.Namespace(organization=None, force=False, dry_run=True)
-        
+
         result = run_backup(sample_config, args)
-        
+
         assert result == 0
         mock_manager_instance.backup_repositories.assert_called_once_with(
             organization="quantecon",
@@ -130,11 +132,11 @@ class TestRunBackup:
             "skipped": [],
         }
         mock_manager.return_value = mock_manager_instance
-        
+
         args = argparse.Namespace(organization=None, force=False, dry_run=False)
-        
+
         result = run_backup(sample_config, args)
-        
+
         assert result == 1
 
     @patch.dict("os.environ", {"GITHUB_TOKEN": "test-token"})
@@ -151,11 +153,11 @@ class TestRunBackup:
             "skipped": [],
         }
         mock_manager.return_value = mock_manager_instance
-        
+
         args = argparse.Namespace(organization="other-org", force=False, dry_run=False)
-        
-        result = run_backup(sample_config, args)
-        
+
+        run_backup(sample_config, args)  # Result intentionally unused
+
         mock_manager_instance.backup_repositories.assert_called_once_with(
             organization="other-org",
             skip_existing=True,
@@ -170,9 +172,9 @@ class TestRunReport:
     def test_report_no_token(self, sample_config):
         """Test report fails without GitHub token."""
         args = argparse.Namespace(organization=None)
-        
+
         result = run_report(sample_config, args)
-        
+
         assert result == 1
 
     @patch.dict("os.environ", {"GITHUB_TOKEN": "test-token"})
@@ -190,11 +192,11 @@ class TestRunReport:
             "repositories": {},
         }
         mock_manager.return_value = mock_manager_instance
-        
+
         args = argparse.Namespace(organization=None)
-        
+
         result = run_report(sample_config, args)
-        
+
         assert result == 0
 
 
@@ -207,13 +209,13 @@ class TestMain:
         """Test main runs backup task."""
         config_file = tmp_path / "config.yml"
         config_file.write_text("backup:\n  enabled: true")
-        
+
         mock_load_config.return_value = {"backup": {"enabled": True}}
         mock_run_backup.return_value = 0
-        
+
         with patch("sys.argv", ["prog", "--config", str(config_file), "--task", "backup"]):
             result = main()
-        
+
         assert result == 0
         mock_run_backup.assert_called_once()
 
@@ -223,13 +225,13 @@ class TestMain:
         """Test main runs report task."""
         config_file = tmp_path / "config.yml"
         config_file.write_text("backup:\n  enabled: true")
-        
+
         mock_load_config.return_value = {"backup": {"enabled": True}}
         mock_run_report.return_value = 0
-        
+
         with patch("sys.argv", ["prog", "--config", str(config_file), "--task", "report"]):
             result = main()
-        
+
         assert result == 0
         mock_run_report.assert_called_once()
 
@@ -237,5 +239,5 @@ class TestMain:
         """Test main fails when config not found."""
         with patch("sys.argv", ["prog", "--config", str(tmp_path / "nonexistent.yml")]):
             result = main()
-        
+
         assert result == 1

@@ -77,11 +77,33 @@ Coordinates the backup process for all matched repositories.
 
 ### RepoMatcher (`src/backup/repo_matcher.py`)
 
-Filters repositories using regex patterns.
+Filters repositories using regex patterns and exact names, with exclusion support.
 
 **Methods:**
-- `matches(repo_name)`: Check if name matches any pattern
-- `filter_repositories(github_client, org)`: Get all matching repos
+- `matches(repo_name)`: Check if name matches any pattern or exact name
+- `is_excluded(repo_name)`: Check if name matches any exclude rule
+- `filter_repositories(github_client, org)`: Get all matching repos (after exclusions)
+- `_log_repo_list(repo_names)`: Format and log a list of repos in columns
+
+**Configuration Options:**
+- `patterns`: Regex patterns to include
+- `repositories`: Exact names to include
+- `exclude_archived`: Skip archived repositories
+- `exclude_patterns`: Regex patterns to exclude
+- `exclude_repositories`: Exact names to exclude
+
+**Exclusion Order:**
+1. Archived repos filtered first (if `exclude_archived: true`)
+2. Include patterns/repositories applied
+3. Exclusions applied last (takes priority over includes)
+
+**Example Output:**
+```
+INFO - Excluded 6 repositories by exclude rules:
+INFO -   econark                   old-project               quantecon.py
+INFO -   repo-deprecated           test-repo                 unused-fork
+INFO - 42 repositories remaining after exclusions
+```
 
 **Pattern Examples:**
 - `lecture-.*` → matches `lecture-python`, `lecture-julia`
@@ -110,8 +132,15 @@ Manages S3 uploads with verification.
 backup:
   enabled: true
   organization: "quantecon"
+  exclude_archived: true
+  repositories:
+    - "specific-repo"
   patterns:
     - "lecture-.*"
+  exclude_repositories:
+    - "old-repo"
+  exclude_patterns:
+    - ".*-test$"
   s3:
     bucket: "bucket-name"
     region: "us-east-1"
@@ -170,22 +199,38 @@ Store `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in GitHub secrets.
 
 ```
 tests/
-├── conftest.py           # Pytest fixtures
-└── test_repo_matcher.py  # Unit tests for RepoMatcher
+├── conftest.py              # Pytest fixtures
+├── test_backup_manager.py   # BackupManager tests
+├── test_main.py             # CLI tests
+├── test_repo_matcher.py     # RepoMatcher tests
+└── test_s3_handler.py       # S3Handler tests
 ```
 
 Run tests:
 ```bash
-pytest tests/
+nox -s tests          # Full suite with coverage (Python 3.9-3.12)
+nox -s tests_quick    # Quick run without coverage
 ```
+
+**Coverage**: 88% (55 tests)
 
 ## Security
 
+### Read-Only GitHub Operations
+
+This workflow performs **read-only operations** on GitHub repositories:
+
+- Only `get_organization()`, `get_repos()`, and property access are used
+- `git clone --mirror` only downloads (never pushes)
+- No repository modifications, commits, or pull requests
+
+### Best Practices
+
 - Use OIDC authentication (no stored credentials)
-- Minimum required GitHub token permissions
+- Use fine-grained PATs with minimal scopes
 - S3 bucket should have restricted access
 - Backups encrypted in transit (TLS)
 
 ---
 
-**Last Updated**: 2025-11-27
+**Last Updated**: 2025-12-02

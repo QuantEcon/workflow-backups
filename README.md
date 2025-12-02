@@ -133,6 +133,9 @@ backup:
   enabled: true
   organization: "your-org"
   
+  # Skip archived repositories (default: false)
+  exclude_archived: true
+  
   # Exact repository names (simple, no regex needed)
   repositories:
     - "my-important-repo"
@@ -142,6 +145,16 @@ backup:
   patterns:
     - "lecture-.*"      # Backup repos starting with "lecture-"
     - "quantecon-.*"    # Backup repos starting with "quantecon-"
+  
+  # Exclude specific repos by exact name
+  exclude_repositories:
+    - "testing-repo"
+    - "codespaces-test"
+  
+  # Exclude repos matching patterns (applied after include matching)
+  exclude_patterns:
+    - ".*-test$"        # Exclude repos ending in -test
+    - "test-.*"         # Exclude repos starting with test-
   
   s3:
     bucket: "your-backup-bucket"
@@ -260,13 +273,42 @@ git tag         # View all tags
 
 The backup is a complete git mirror including all branches, tags, and full commit history.
 
+## Security
+
+### Read-Only Operations
+
+This workflow is designed to be **completely read-only** with respect to GitHub repositories:
+
+- **No GitHub write operations**: The code only uses read operations (`get_organization()`, `get_repos()`, repository property access)
+- **No git push/commit**: Only `git clone --mirror` is used (downloads only, never pushes)
+- **No repository modifications**: Source repositories are never modified in any way
+
+The only write operations are:
+- **S3 uploads**: Backup archives are uploaded to your S3 bucket
+- **Issue updates**: Backup reports are posted to issues in *this* repository (workflow-backups)
+
+### Token Permissions
+
+| Token | Required Scopes | Purpose |
+|-------|-----------------|---------|
+| `GITHUB_TOKEN` | `contents: read` | Clone public repos |
+| `REPO_BACKUP_TOKEN` (PAT) | `Contents: Read-only` | Clone private repos |
+| AWS Role | `s3:PutObject`, `s3:GetObject`, `s3:ListBucket` | S3 backup storage |
+
+### Best Practices
+
+- Use OIDC authentication for AWS (no static credentials)
+- Use fine-grained PATs with minimal scopes
+- Store all tokens/credentials as GitHub Secrets
+- Never commit credentials to the repository
+
 ## Technology Stack
 
 - **Language**: Python 3.9+
 - **Cloud Storage**: AWS S3
 - **GitHub API**: PyGithub
 - **AWS SDK**: boto3
-- **Testing**: pytest
+- **Testing**: pytest (88% code coverage)
 
 ## License
 
