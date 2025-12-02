@@ -13,6 +13,7 @@ backup:
     - "QuantEcon.manual"        # Test repo
     - "sphinx-tojupyter"        # Test repo
     - "lecture-wasm"            # Test repo
+    - "lecture-python-advanced.myst"  # Test repo (large lecture site)
   
   # Repository name patterns (Python regex)
   patterns:
