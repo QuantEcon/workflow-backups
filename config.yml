@@ -79,6 +79,14 @@ backup:
   #   - ".*-test$"              # Exclude repos ending in -test
   #   - "test-.*"               # Exclude repos starting with test-
   
+  # Metadata backup configuration (GitHub issues, releases, etc.)
+  # These are exported as JSON files alongside git archives
+  # WARNING: Issues backup requires many API calls (1 per issue for comments)
+  # See: https://github.com/QuantEcon/workflow-backups/issues/3
+  backup_metadata:
+    issues: false             # Export issues with comments (disabled by default)
+    # releases: false         # Export releases (future feature)
+  
   # AWS S3 configuration
   s3:
     bucket: "backup-quantecon-github"

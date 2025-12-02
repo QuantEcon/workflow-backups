@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-12-02
+
+### Added
+- **Issues metadata backup**: Export GitHub issues (with comments) to JSON files
+  - New `backup_metadata.issues` config option (disabled by default)
+  - JSON schema includes issue metadata, labels, assignees, milestones, comments
+  - Files saved as `{repo}-issues-{date}.json` alongside git archives
+- New `IssuesHandler` class for issues export functionality
+- Monthly issue reporting: backup reports grouped by month with collapsed details
+- End-of-month review reminder (@mmcky mention when day >= 25)
+
+### Changed
+- `BackupManager` now accepts optional `backup_metadata` configuration
+- GitHub issue reports now use monthly issues instead of single rolling issue
+
+### Notes
+- Issues backup is disabled by default due to API rate limit concerns (see #3)
+- Each issue requires a separate API call for comments
+- GraphQL optimization planned for future release
+
 ## [0.2.0] - 2025-12-02
 
 ### Added

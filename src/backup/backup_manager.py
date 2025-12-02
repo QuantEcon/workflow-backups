@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import subprocess
 import tempfile
@@ -12,6 +13,7 @@ from typing import Any
 from github import Github
 from github.Repository import Repository
 
+from .issues_handler import IssuesHandler
 from .repo_matcher import RepoMatcher
 from .s3_handler import S3Handler
 
@@ -26,6 +28,7 @@ class BackupManager:
         github_token: str,
         s3_handler: S3Handler,
         repo_matcher: RepoMatcher,
+        backup_metadata: dict[str, bool] | None = None,
     ) -> None:
         """
         Initialize the backup manager.
@@ -34,11 +37,16 @@ class BackupManager:
             github_token: GitHub authentication token
             s3_handler: Configured S3 handler for uploads
             repo_matcher: Repository pattern matcher
+            backup_metadata: Dict of metadata types to backup (e.g., {"issues": True})
         """
         self.github_token = github_token
         self.github = Github(github_token)
         self.s3_handler = s3_handler
         self.repo_matcher = repo_matcher
+        self.backup_metadata = backup_metadata or {}
+        self.issues_handler = (
+            IssuesHandler(self.github) if self.backup_metadata.get("issues") else None
+        )
         logger.info("Initialized BackupManager")
 
     def backup_repositories(
@@ -68,6 +76,11 @@ class BackupManager:
             "failed": [],
             "skipped": [],
             "would_backup": [],  # For dry-run mode
+            "issues_backup": {
+                "successful": [],
+                "failed": [],
+                "skipped": [],
+            },
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "dry_run": dry_run,
         }
@@ -84,6 +97,9 @@ class BackupManager:
                 if skip_existing and self.s3_handler.backup_exists(backup_key):
                     logger.info(f"Backup already exists, skipping: {backup_key}")
                     results["skipped"].append({"repo": repo.full_name, "reason": "already_exists"})
+                    # Still backup issues if enabled (issues may have changed)
+                    if self.issues_handler and not dry_run:
+                        self._backup_issues(repo, date_str, results, skip_existing)
                     continue
 
                 # In dry-run mode, just log what would happen
@@ -94,11 +110,14 @@ class BackupManager:
                     )
                     continue
 
-                # Perform backup
+                # Perform git backup
                 success = self._backup_single_repo(repo, backup_key)
 
                 if success:
                     results["successful"].append(repo.full_name)
+                    # Backup issues if enabled
+                    if self.issues_handler:
+                        self._backup_issues(repo, date_str, results, skip_existing)
                 else:
                     results["failed"].append({"repo": repo.full_name, "reason": "upload_failed"})
 
@@ -181,6 +200,72 @@ class BackupManager:
             except Exception as e:
                 logger.error(f"Backup failed for {repo.full_name}: {e}")
                 return False
+
+    def _backup_issues(
+        self, repo: Repository, date_str: str, results: dict[str, Any], skip_existing: bool
+    ) -> bool:
+        """
+        Backup issues for a single repository to S3.
+
+        Args:
+            repo: GitHub repository object
+            date_str: Date string for backup filename (YYYYMMDD)
+            results: Results dictionary to update
+            skip_existing: Skip if backup already exists
+
+        Returns:
+            True if backup was successful, False otherwise
+        """
+        issues_key = f"{repo.name}/{repo.name}-issues-{date_str}.json"
+
+        try:
+            # Skip if issues backup already exists
+            if skip_existing and self.s3_handler.backup_exists(issues_key):
+                logger.info(f"Issues backup already exists, skipping: {issues_key}")
+                results["issues_backup"]["skipped"].append(repo.full_name)
+                return True
+
+            # Export issues
+            logger.info(f"Exporting issues for: {repo.full_name}")
+            export_data = self.issues_handler.export_issues(repo)
+
+            # Upload to S3 as JSON
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False, encoding="utf-8"
+            ) as f:
+                json.dump(export_data, f, indent=2, ensure_ascii=False)
+                temp_file = Path(f.name)
+
+            try:
+                metadata = {
+                    "repository": repo.full_name,
+                    "backup_date": datetime.now(timezone.utc).isoformat(),
+                    "content_type": "application/json",
+                    "total_issues": str(export_data["metadata"]["total_issues"]),
+                }
+
+                success = self.s3_handler.upload_file(temp_file, issues_key, metadata)
+
+                if success:
+                    logger.info(
+                        f"Issues backup successful: {issues_key} "
+                        f"({export_data['metadata']['total_issues']} issues)"
+                    )
+                    results["issues_backup"]["successful"].append(repo.full_name)
+                else:
+                    results["issues_backup"]["failed"].append(
+                        {"repo": repo.full_name, "reason": "upload_failed"}
+                    )
+
+                return success
+
+            finally:
+                temp_file.unlink()  # Clean up temp file
+
+        except Exception as e:
+            logger.error(f"Failed to backup issues for {repo.full_name}: {e}")
+            results["issues_backup"]["failed"].append({"repo": repo.full_name, "reason": str(e)})
+            return False
 
     def get_backup_report(self, organization: str) -> dict[str, Any]:
         """

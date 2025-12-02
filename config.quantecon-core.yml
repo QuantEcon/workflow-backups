@@ -1,0 +1,63 @@
+# QuantEcon Repository Backup Configuration
+# Focused on most important active assets
+#
+# For full organization backup, use: --config config.quantecon.yml
+
+backup:
+  enabled: true
+  organization: "QuantEcon"
+  
+  # Skip archived repositories
+  exclude_archived: true
+  
+  # ============================================================
+  # CORE ASSETS TO BACKUP
+  # ============================================================
+  
+  # Exact repository names
+  repositories:
+    # ----- Core Libraries -----
+    - "QuantEcon.py"                # Python library
+    - "QuantEcon.jl"                # Julia library
+    
+    # ----- Active Projects -----
+    - "continuous_time_mcs"
+    - "continuous_time_mcs.notebooks"
+    
+    # ----- Infrastructure Tools -----
+    - "sphinx-tojupyter"
+    - "quantecon-book-theme"
+    
+    # ----- Organization Config -----
+    - ".github"
+    - "meta"
+  
+  # Repository name patterns (Python regex)
+  patterns:
+    # Lecture series - PRIMARY CONTENT
+    - "lecture-.*"                  # All lecture repos
+  
+  # ============================================================
+  # EXCLUSIONS
+  # ============================================================
+  
+  # Exclude deprecated lecture versions
+  exclude_repositories:
+    - "lecture-python"              # Superseded by lecture-python.myst
+    - "lecture-python-programming"  # Superseded by .myst version
+    - "lecture-python-advanced"     # Superseded by .myst version
+    - "lecture-python.theme"
+    - "lecture-python-programming.theme"
+    - "lecture-python-advanced.theme"
+    - "lecture-source-py.theme"
+    - "lecture-source-jl.theme"
+    - "lecture-source-jl.notebooks"
+  
+  # AWS S3 configuration
+  s3:
+    bucket: "backup-quantecon-github"
+    region: "us-east-1"
+    prefix: ""
+
+logging:
+  level: "INFO"

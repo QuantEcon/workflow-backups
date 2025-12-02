@@ -30,18 +30,18 @@ The `workflow-backups` project is a centralized Python application that backs up
                   │ BackupManager │
                   └───────┬───────┘
                           │
-        ┌─────────────────┼─────────────────┐
-        │                 │                 │
-        ▼                 ▼                 ▼
-┌──────────────┐   ┌──────────┐   ┌──────────────┐
-│ RepoMatcher  │   │S3Handler │   │  GitHub API  │
-│              │   │          │   │  (PyGithub)  │
-└──────────────┘   └──────────┘   └──────────────┘
-        │                │                │
-        ▼                ▼                ▼
-┌──────────────┐   ┌──────────┐   ┌──────────────┐
-│GitHub Repos  │   │  AWS S3  │   │  Git Clone   │
-└──────────────┘   └──────────┘   └──────────────┘
+        ┌─────────────────┼─────────────────┬─────────────────┐
+        │                 │                 │                 │
+        ▼                 ▼                 ▼                 ▼
+┌──────────────┐   ┌──────────┐   ┌──────────────┐   ┌───────────────┐
+│ RepoMatcher  │   │S3Handler │   │  GitHub API  │   │ IssuesHandler │
+│              │   │          │   │  (PyGithub)  │   │  (optional)   │
+└──────────────┘   └──────────┘   └──────────────┘   └───────────────┘
+        │                │                │                 │
+        ▼                ▼                ▼                 ▼
+┌──────────────┐   ┌──────────┐   ┌──────────────┐   ┌───────────────┐
+│GitHub Repos  │   │  AWS S3  │   │  Git Clone   │   │ Issues JSON   │
+└──────────────┘   └──────────┘   └──────────────┘   └───────────────┘
 ```
 
 ## Components
@@ -63,6 +63,7 @@ Coordinates the backup process for all matched repositories.
 **Methods:**
 - `backup_repositories()`: Main orchestration - iterates repos, handles results
 - `_backup_single_repo()`: Clone repo, create archive, upload to S3
+- `_backup_issues()`: Export issues to JSON and upload to S3 (if enabled)
 - `get_backup_report()`: Generate statistics on backups
 
 **Backup Process:**
@@ -73,7 +74,49 @@ Coordinates the backup process for all matched repositories.
    - Create tarball (`tar -czf`)
    - Upload to S3 with metadata
    - Verify upload
+   - If issues backup enabled: export issues to JSON, upload to S3
 3. Return results summary
+
+### IssuesHandler (`src/backup/issues_handler.py`)
+
+Exports GitHub issues (with comments) to JSON format for backup.
+
+**Methods:**
+- `export_issues(repo)`: Export all issues from a repository to a dictionary
+- `_serialize_issue(issue)`: Convert issue object to JSON-serializable dict
+- `save_to_file()`: Save exported data to a JSON file
+- `export_to_file()`: Combined export and save
+
+**JSON Schema:**
+```json
+{
+  "metadata": {
+    "repo": "QuantEcon/quantecon-py",
+    "exported_at": "2025-12-02T10:30:00Z",
+    "total_issues": 142,
+    "open_issues": 23,
+    "closed_issues": 119
+  },
+  "issues": [
+    {
+      "number": 123,
+      "title": "Bug in solve_discrete_dp",
+      "url": "https://github.com/...",
+      "state": "open",
+      "author": "jstac",
+      "labels": ["bug", "help wanted"],
+      "milestone": "v0.8.0",
+      "assignees": ["mmcky"],
+      "body": "Issue description...",
+      "comments": [
+        {"author": "mmcky", "body": "Thanks...", "created_at": "..."}
+      ]
+    }
+  ]
+}
+```
+
+**Note:** Issues backup is disabled by default due to API rate limits. Each issue requires a separate API call to fetch comments. See issue #3 for optimization plans.
 
 ### RepoMatcher (`src/backup/repo_matcher.py`)
 
@@ -141,6 +184,8 @@ backup:
     - "old-repo"
   exclude_patterns:
     - ".*-test$"
+  backup_metadata:
+    issues: false           # Disabled by default (API rate limits)
   s3:
     bucket: "bucket-name"
     region: "us-east-1"
@@ -157,16 +202,23 @@ Environment variables:
 s3://bucket-name/backups/
 ├── repo-name/
 │   ├── repo-name-20251127.tar.gz
+│   ├── repo-name-issues-20251127.json  # If issues backup enabled
 │   └── repo-name-20251120.tar.gz
 └── another-repo/
     └── another-repo-20251127.tar.gz
 ```
 
-**Metadata per backup:**
+**Git backup metadata:**
 - `repository`: Full name (org/repo)
 - `backup_date`: ISO 8601 timestamp
 - `default_branch`: Default branch name
 - `size_bytes`: Archive size
+
+**Issues backup metadata:**
+- `repository`: Full name (org/repo)
+- `backup_date`: ISO 8601 timestamp
+- `content_type`: application/json
+- `total_issues`: Number of issues exported
 
 ## Authentication
 
@@ -212,7 +264,7 @@ nox -s tests          # Full suite with coverage (Python 3.9-3.12)
 nox -s tests_quick    # Quick run without coverage
 ```
 
-**Coverage**: 88% (55 tests)
+**Coverage**: 83% (69 tests)
 
 ## Security
 
@@ -220,7 +272,7 @@ nox -s tests_quick    # Quick run without coverage
 
 This workflow performs **read-only operations** on GitHub repositories:
 
-- Only `get_organization()`, `get_repos()`, and property access are used
+- Only `get_organization()`, `get_repos()`, `get_issues()`, `get_comments()` and property access are used
 - `git clone --mirror` only downloads (never pushes)
 - No repository modifications, commits, or pull requests
 

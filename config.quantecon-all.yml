@@ -1,0 +1,151 @@
+# QuantEcon Repository Backup Configuration
+# Production configuration for backing up all important QuantEcon repos
+
+backup:
+  enabled: true
+  organization: "QuantEcon"
+  
+  # Skip archived repositories (default: false)
+  exclude_archived: true
+  
+  # ============================================================
+  # REPOSITORIES TO BACKUP
+  # ============================================================
+  
+  # Exact repository names (for repos not matching patterns)
+  repositories:
+    # Core infrastructure
+    - ".github"                     # Org-level GitHub config
+    - "meta"                        # Organization meta/admin
+    - "website"                     # Main website
+    - "data"                        # Shared data files
+    - "templates"                   # Project templates
+    
+    # Sphinx/Jupyter tools (still in use)
+    - "sphinx-tojupyter"
+    - "sphinxcontrib-jupyter"
+    
+    # Active projects
+    - "continuous_time_mcs"
+    - "continuous_time_mcs.notebooks"
+    - "game-theory-notebooks"
+    - "jaxinterp"
+    - "gpu_lecture"
+    - "dynamic_programming_lecture"
+    - "notebook-gallery"
+    - "phd-macro-theory-book"
+    
+    # Grant/admin (may contain important docs)
+    - "grant-admin"
+    - "grant-fundraising"
+    - "projects-admin"
+  
+  # Repository name patterns (Python regex)
+  patterns:
+    # Lecture series (42 repos) - PRIMARY CONTENT
+    - "lecture-.*"
+    
+    # QuantEcon core libraries and tools
+    - "QuantEcon\\..*"              # QuantEcon.py, QuantEcon.jl, etc.
+    - "quantecon-.*"                # quantecon-theme, quantecon-book-*, etc.
+    
+    # Books
+    - "book-.*"                     # book-dp1, book-networks, etc.
+    
+    # GitHub Actions (org automation)
+    - "action-.*"
+    
+    # Julia packages (active)
+    - ".*\\.jl$"                    # All Julia packages
+    
+    # Workshop materials (teaching archives)
+    - ".*workshop.*"                # Workshops (valuable teaching content)
+    - ".*_workshop_.*"              # Alternative naming: keio_comp_econ_2023
+    - ".*-course-.*"                # africa-summer-course-2024
+  
+  # ============================================================
+  # REPOSITORIES TO EXCLUDE
+  # ============================================================
+  
+  # Exclude specific repositories by exact name
+  # These are archive candidates or superseded repos
+  # See: https://github.com/QuantEcon/meta/issues/267
+  exclude_repositories:
+    # ----- Deprecated infrastructure -----
+    - "Bookshelf.theme"
+    - "quantecon.build.lectures"
+    - "quantecon-sprints"
+    - "QuantEcon.py-conda"
+    - "QuantEcon.py.benchmark"
+    - "QuantEcon.lectures.code"
+    - "lecture-source-py.theme"
+    - "lecture-source-jl.notebooks"
+    - "lecture-source-jl.theme"
+    - "lecture-python-advanced.theme"
+    - "lecture-python-programming.theme"
+    - "lecture-python.theme"
+    - "python_lecture_sandpit"
+    - "python-lecture-sandpit.myst"
+    - "parallelization_experiments"
+    
+    # ----- Old tools (superseded) -----
+    - "ipynb_pdf_constructor"
+    - "ipynb_to_rst_tools"
+    - "ipynb_to_rst"
+    - "docutils-mirror"
+    - "jupinx"
+    - "sphinxcontrib-jupyter.minimal"
+    - "sphinxcontrib-jupyter.testground"
+    
+    # ----- Test repos -----
+    - "testing-repo"
+    - "codespaces-test"
+    - "infrastructure-testing"
+    - "test-lecture-python-intro"
+    - "test-translation-sync"
+    - "test-translation-sync.zh-cn"
+    - "tmp-github-git-tutorial"
+    - "ra-training-repo"
+    
+    # ----- Deprecated libraries -----
+    - "DFOLS.jl"
+    - "SimpleDifferentialOperators.jl"
+    - "InstantiateFromURL.jl"
+    - "MatchingMarkets.py"
+    - "qeds"
+    - "rvlib"
+    - "TaxSmoothing"
+    - "krusell_smith_code"
+    - "firm_size_empirics"
+    - "dynamic_factor_models"
+    - "econometrics"
+    
+    # ----- Old lecture versions (superseded by .myst) -----
+    - "quantecon-notebooks-python"
+    - "lecture-python-programming"
+    - "lecture-python-advanced"
+    - "lecture-python"
+    
+    # ----- Old websites/proposals -----
+    - "quant-econ.net"
+    - "proposal.computational-economic-sciences"
+    - "jupyterhub-anu-emet2007"
+    
+    # ----- Private/internal (if any leak through) -----
+    - "notebook-gallery.private"
+    - "indian_workshop_2022_private"
+  
+  # Exclude patterns (regex)
+  exclude_patterns:
+    # Test-related repos
+    - "^test-.*"                    # Repos starting with test-
+    - ".*-test$"                    # Repos ending with -test
+  
+  # AWS S3 configuration
+  s3:
+    bucket: "backup-quantecon-github"
+    region: "us-east-1"
+    prefix: ""
+
+logging:
+  level: "INFO"

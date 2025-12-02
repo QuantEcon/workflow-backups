@@ -73,10 +73,14 @@ def run_backup(config: dict, args: argparse.Namespace) -> int:
             exclude_repositories=exclude_repositories,
         )
 
+        # Get metadata backup configuration
+        backup_metadata = backup_config.get("backup_metadata", {})
+
         backup_manager = BackupManager(
             github_token=github_token,
             s3_handler=s3_handler,
             repo_matcher=repo_matcher,
+            backup_metadata=backup_metadata,
         )
 
         # Get organization from config or command line
@@ -111,6 +115,16 @@ def run_backup(config: dict, args: argparse.Namespace) -> int:
             logger.info(f"Successful: {len(results['successful'])}")
             logger.info(f"Failed: {len(results['failed'])}")
             logger.info(f"Skipped: {len(results['skipped'])}")
+
+            # Log issues backup results if enabled
+            issues_results = results.get("issues_backup", {})
+            if issues_results.get("successful") or issues_results.get("failed"):
+                logger.info("-" * 40)
+                logger.info("Issues Backup Results:")
+                logger.info(f"  Successful: {len(issues_results.get('successful', []))}")
+                logger.info(f"  Failed: {len(issues_results.get('failed', []))}")
+                logger.info(f"  Skipped: {len(issues_results.get('skipped', []))}")
+
             logger.info("=" * 60)
 
             if results["failed"]:
@@ -118,6 +132,11 @@ def run_backup(config: dict, args: argparse.Namespace) -> int:
                 for failure in results["failed"]:
                     logger.error(f"  - {failure}")
                 return 1
+
+            if issues_results.get("failed"):
+                logger.warning("Failed issues backups:")
+                for failure in issues_results["failed"]:
+                    logger.warning(f"  - {failure}")
 
         return 0
 

@@ -156,6 +156,11 @@ backup:
     - ".*-test$"        # Exclude repos ending in -test
     - "test-.*"         # Exclude repos starting with test-
   
+  # Metadata backup (GitHub issues, releases, etc.)
+  # WARNING: Issues backup requires many API calls - see issue #3
+  backup_metadata:
+    issues: false       # Export issues with comments (disabled by default)
+  
   s3:
     bucket: "your-backup-bucket"
     region: "us-east-1"
@@ -240,6 +245,7 @@ s3://bucket-name/
 ├── repo-name/
 │   ├── repo-name-20251127.tar.gz
 │   ├── repo-name-20251120.tar.gz
+│   ├── repo-name-issues-20251127.json   # If issues backup enabled
 │   └── repo-name-20251113.tar.gz
 └── another-repo/
     └── another-repo-20251127.tar.gz
@@ -279,7 +285,7 @@ The backup is a complete git mirror including all branches, tags, and full commi
 
 This workflow is designed to be **completely read-only** with respect to GitHub repositories:
 
-- **No GitHub write operations**: The code only uses read operations (`get_organization()`, `get_repos()`, repository property access)
+- **No GitHub write operations**: The code only uses read operations (`get_organization()`, `get_repos()`, `get_issues()`, repository/issue property access)
 - **No git push/commit**: Only `git clone --mirror` is used (downloads only, never pushes)
 - **No repository modifications**: Source repositories are never modified in any way
 

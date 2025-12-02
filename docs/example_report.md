@@ -34,6 +34,32 @@ When running `python -m src.main --config config.yml --task backup`:
 2025-11-27 02:05:30,001 - src.main - INFO - ============================================================
 ```
 
+## Backup with Issues Metadata
+
+When `backup_metadata.issues: true` is enabled:
+
+```
+2025-12-02 15:13:22,572 - src.backup.backup_manager - INFO - Exporting issues for: QuantEcon/QuantEcon.manual
+2025-12-02 15:13:22,572 - src.backup.issues_handler - INFO - Exporting issues for: QuantEcon/QuantEcon.manual
+2025-12-02 15:14:00,982 - src.backup.issues_handler - INFO - Exported 29 issues (5 open, 24 closed) for QuantEcon/QuantEcon.manual
+2025-12-02 15:14:00,986 - src.backup.s3_handler - INFO - Uploading .../QuantEcon.manual-issues-20251202.json to s3://...
+2025-12-02 15:14:02,447 - src.backup.s3_handler - INFO - Successfully uploaded and verified: QuantEcon.manual/QuantEcon.manual-issues-20251202.json
+2025-12-02 15:14:02,447 - src.backup.backup_manager - INFO - Issues backup successful: QuantEcon.manual/QuantEcon.manual-issues-20251202.json (29 issues)
+...
+2025-12-02 15:14:02,448 - src.main - INFO - ============================================================
+2025-12-02 15:14:02,449 - src.main - INFO - Backup Results:
+2025-12-02 15:14:02,449 - src.main - INFO - Total repositories: 1
+2025-12-02 15:14:02,449 - src.main - INFO - Successful: 1
+2025-12-02 15:14:02,449 - src.main - INFO - Failed: 0
+2025-12-02 15:14:02,449 - src.main - INFO - Skipped: 0
+2025-12-02 15:14:02,449 - src.main - INFO - ----------------------------------------
+2025-12-02 15:14:02,449 - src.main - INFO - Issues Backup Results:
+2025-12-02 15:14:02,449 - src.main - INFO -   Successful: 1
+2025-12-02 15:14:02,449 - src.main - INFO -   Failed: 0
+2025-12-02 15:14:02,449 - src.main - INFO -   Skipped: 0
+2025-12-02 15:14:02,449 - src.main - INFO - ============================================================
+```
+
 ## Report Task Output
 
 When running `python -m src.main --config config.yml --task report`:
