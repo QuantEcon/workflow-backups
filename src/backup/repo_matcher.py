@@ -160,9 +160,10 @@ class RepoMatcher:
             found_names = {repo.name for repo in all_repos}
             not_found = self.repositories - found_names
             if not_found:
-                logger.warning(
-                    f"Configured repositories not found (may be private or misspelled): "
-                    f"{sorted(not_found)}"
-                )
+                logger.warning("=" * 60)
+                logger.warning("REPOSITORIES NOT FOUND (may be private or misspelled):")
+                for repo_name in sorted(not_found):
+                    logger.warning(f"  - {repo_name}")
+                logger.warning("=" * 60)
 
         return matched_repos
