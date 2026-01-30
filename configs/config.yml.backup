@@ -1,0 +1,94 @@
+# QuantEcon Repository Backup Configuration
+
+backup:
+  enabled: true
+  organization: "QuantEcon"
+  
+  # Skip archived repositories (default: false)
+  exclude_archived: true
+  
+  # Exact repository names (no regex needed)
+  repositories:
+    - "continuous_time_mcs"     # Test repo
+    - "QuantEcon.manual"        # Test repo
+    - "sphinx-tojupyter"        # Test repo
+    - "lecture-wasm"            # Test repo
+    - "lecture-python-advanced.myst"  # Test repo (large lecture site)
+    - "lecture-python-intro"          # Test repo (large lecture site)
+    - "lecture-python.myst"           # Test repo (largest lecture site)
+    - "lecture-python-programming.myst"
+    - "lecture-jax"
+  
+  # Repository name patterns (Python regex)
+  patterns:
+    - "action-.*"               # Test pattern: 5 repos (~10 MB total)
+    - "QuantEcon.*"             # Test pattern: 11 repos (QuantEconHub is archived)
+    # - "lecture-.*"            # lecture-python.myst, lecture-julia, etc.
+    # - "quantecon-.*"          # quantecon-notebooks-python, etc.
+  
+  # Exclude specific repositories by exact name
+  # These are archive candidates (no activity since 2019 or earlier)
+  # Note: Workshop repos kept as useful teaching archives
+  # See: https://github.com/QuantEcon/meta/issues/267
+  exclude_repositories:
+    # Old/deprecated infrastructure
+    - "quantecon-sprints"
+    - "QuantEcon.py-conda"
+    - "QuantEcon.py.benchmark"
+    - "sphinxcontrib-jupyter.testground"
+    - "sphinxcontrib-jupyter.minimal"
+    - "parallelization_experiments"
+    - "QuantEcon.lectures.code"
+    - "Bookshelf.theme"
+    - "quantecon.build.lectures"
+    - "lecture-source-py.theme"
+    - "lecture-source-jl.notebooks"
+    - "lecture-source-jl.theme"
+    - "lecture-python-advanced.theme"
+    - "lecture-python-programming.theme"
+    - "lecture-python.theme"
+    - "python_lecture_sandpit"
+    # Old tools/utilities
+    - "ipynb_pdf_constructor"
+    - "ipynb_to_rst_tools"
+    - "ipynb_to_rst"
+    - "docutils-mirror"
+    - "jupinx"
+    # Test repos
+    - "testing-repo"
+    - "codespaces-test"
+    # Deprecated libraries/projects
+    - "econometrics"
+    - "krusell_smith_code"
+    - "DFOLS.jl"
+    - "dynamic_factor_models"
+    - "TaxSmoothing"
+    - "SimpleDifferentialOperators.jl"
+    - "firm_size_empirics"
+    - "MatchingMarkets.py"
+    - "qeds"
+    - "InstantiateFromURL.jl"
+    - "rvlib"
+    # Old lecture versions (superseded by .myst versions)
+    - "quantecon-notebooks-python"
+    - "lecture-python-programming"
+    - "lecture-python-advanced"
+    - "lecture-python"
+    # Old websites/proposals
+    - "quant-econ.net"
+    - "proposal.computational-economic-sciences"
+    - "jupyterhub-anu-emet2007"
+  
+  # Exclude repositories matching patterns (Python regex)
+  # exclude_patterns:
+  #   - ".*-test$"              # Exclude repos ending in -test
+  #   - "test-.*"               # Exclude repos starting with test-
+  
+  # AWS S3 configuration
+  s3:
+    bucket: "backup-quantecon-github"
+    region: "us-east-1"
+    prefix: ""
+
+logging:
+  level: "INFO"
