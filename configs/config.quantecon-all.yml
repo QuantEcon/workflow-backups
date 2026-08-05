@@ -101,7 +101,7 @@ backup:
     - "testing-repo"
     - "codespaces-test"
     - "infrastructure-testing"
-    - "test-lecture-python-intro"
+    - "test-actions-lecture-intro"
     - "test-translation-sync"
     - "test-translation-sync.zh-cn"
     - "tmp-github-git-tutorial"
